@@ -548,23 +548,26 @@ class _BalanceCard extends StatelessWidget {
         : CurrencyFormatter.format(balance);
 
     return Card(
-      elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      color: Colors.green.shade700,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: Colors.black, width: 1),
+      ),
+      color: Colors.white,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
+            const Row(
               children: [
                 Icon(Icons.account_balance_wallet,
-                    color: Colors.white.withOpacity(0.85), size: 20),
-                const SizedBox(width: 8),
+                    color: Colors.black, size: 20),
+                SizedBox(width: 8),
                 Text(
                   'Saldo',
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.85),
+                    color: Colors.black,
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                   ),
@@ -575,7 +578,7 @@ class _BalanceCard extends StatelessWidget {
             Text(
               displayAmount,
               style: TextStyle(
-                color: isNegative ? Colors.red.shade200 : Colors.white,
+                color: isNegative ? Colors.red.shade700 : Colors.black,
                 fontSize: 28,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 0.5,
@@ -585,7 +588,7 @@ class _BalanceCard extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 'Pengeluaran melebihi pemasukan',
-                style: TextStyle(color: Colors.red.shade200, fontSize: 12),
+                style: TextStyle(color: Colors.red.shade700, fontSize: 12),
               ),
             ],
           ],

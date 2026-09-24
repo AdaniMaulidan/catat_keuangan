@@ -3,6 +3,7 @@ import '../../models/transaction_model.dart';
 import '../../repositories/transaction_repository.dart';
 import '../../utils/currency_formatter.dart';
 import '../../widgets/calendar/transaction_calendar.dart';
+import '../../widgets/charts/income_chart.dart';
 import '../income/income_screen.dart';
 import '../expense/expense_screen.dart';
 
@@ -11,6 +12,7 @@ import '../expense/expense_screen.dart';
 //   - Saldo, Total Pemasukan, Total Pengeluaran
 //   - Kalender transaksi dengan marker income (hijau) & expense (merah)
 //   - Daftar transaksi tanggal yang dipilih
+//   - Grafik pemasukan 1 bulan (line chart)
 //
 // Data diambil dari SQLite melalui TransactionRepository.
 class DashboardScreen extends StatefulWidget {
@@ -31,50 +33,50 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String? _errorMessage;
 
   // --- State kalender ---
-  // focusedDay: bulan yang sedang ditampilkan kalender
   DateTime _focusedDay = DateTime.now();
-  // selectedDay: tanggal yang sedang dipilih user
   DateTime _selectedDay = DateTime.now();
-
-  // Transaksi bulan aktif, dikelompokkan per tanggal (key: 'YYYY-MM-DD').
-  // Digunakan untuk marker kalender — diambil sekali per bulan.
   Map<String, List<TransactionModel>> _monthTransactions = {};
-
-  // Transaksi pada tanggal yang dipilih — ditampilkan di bawah kalender.
   List<TransactionModel> _selectedDayTransactions = [];
   bool _isCalendarLoading = false;
   String? _calendarError;
 
+  // --- State grafik pemasukan ---
+  // Bulan yang sedang ditampilkan grafik (independent dari kalender).
+  late DateTime _chartMonth;
+  // Data transaksi bulan grafik — di-share dengan kalender jika bulan sama.
+  List<TransactionModel> _chartMonthTransactions = [];
+  Map<int, double> _incomeByDate = {};
+  bool _isChartLoading = false;
+  String? _chartError;
+
   @override
   void initState() {
     super.initState();
+    _chartMonth = DateTime(DateTime.now().year, DateTime.now().month);
     _loadAll();
   }
 
-  // Memuat semua data: ringkasan keuangan + kalender bulan aktif.
+  // Memuat semua data sekaligus.
   Future<void> _loadAll() async {
     await Future.wait([
       _loadSummary(),
-      _loadMonthTransactions(_focusedDay),
+      _loadMonthData(_focusedDay),
     ]);
-    // Setelah data bulan dimuat, tampilkan transaksi hari ini.
     if (mounted) _updateSelectedDayTransactions(_selectedDay);
   }
 
-  // Mengambil ringkasan keuangan (saldo, total pemasukan, pengeluaran).
+  // Mengambil ringkasan keuangan.
   Future<void> _loadSummary() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
-
     try {
       final results = await Future.wait([
         _repository.getTotalIncome(),
         _repository.getTotalExpense(),
         _repository.getBalance(),
       ]);
-
       if (mounted) {
         setState(() {
           _totalIncome = results[0];
@@ -93,10 +95,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  // Mengambil transaksi seluruh bulan dan kelompokkan ke map per tanggal.
-  // Efisien: satu query untuk seluruh bulan, bukan per tanggal.
-  Future<void> _loadMonthTransactions(DateTime month) async {
+  // Mengambil transaksi satu bulan — dipakai oleh kalender DAN grafik.
+  // Jika bulan kalender == bulan grafik, query cukup sekali.
+  Future<void> _loadMonthData(DateTime month) async {
     setState(() => _isCalendarLoading = true);
+
+    final isChartMonth =
+        month.year == _chartMonth.year && month.month == _chartMonth.month;
+    if (isChartMonth) setState(() => _isChartLoading = true);
 
     try {
       final transactions = await _repository.getTransactionsByMonth(
@@ -104,7 +110,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         month.month,
       );
 
-      // Kelompokkan berdasarkan tanggal ('YYYY-MM-DD').
+      // Kelompokkan untuk kalender.
       final map = <String, List<TransactionModel>>{};
       for (final t in transactions) {
         map.putIfAbsent(t.date, () => []).add(t);
@@ -115,6 +121,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
           _monthTransactions = map;
           _isCalendarLoading = false;
           _calendarError = null;
+
+          // Jika bulan ini juga bulan grafik, update data grafik sekaligus.
+          if (isChartMonth) {
+            _chartMonthTransactions = transactions;
+            _incomeByDate =
+                IncomeChartHelper.buildIncomeByDate(transactions);
+            _isChartLoading = false;
+            _chartError = null;
+          }
         });
       }
     } catch (e) {
@@ -122,24 +137,67 @@ class _DashboardScreenState extends State<DashboardScreen> {
         setState(() {
           _calendarError = 'Gagal memuat kalender: $e';
           _isCalendarLoading = false;
+          if (isChartMonth) {
+            _chartError = 'Gagal memuat grafik pemasukan.';
+            _isChartLoading = false;
+          }
         });
       }
     }
   }
 
-  // Memperbarui daftar transaksi untuk tanggal yang dipilih.
-  // Menggunakan data yang sudah ada di _monthTransactions (tanpa query baru)
-  // jika tanggal masih dalam bulan yang sama dengan _focusedDay.
+  // Mengambil data khusus untuk grafik (bulan berbeda dari kalender).
+  Future<void> _loadChartMonthData(DateTime month) async {
+    setState(() {
+      _isChartLoading = true;
+      _chartError = null;
+    });
+
+    // Jika bulan grafik = bulan kalender, reuse data yang sudah ada.
+    if (month.year == _focusedDay.year &&
+        month.month == _focusedDay.month) {
+      setState(() {
+        _chartMonthTransactions = _monthTransactions.values
+            .expand((list) => list)
+            .toList();
+        _incomeByDate =
+            IncomeChartHelper.buildIncomeByDate(_chartMonthTransactions);
+        _isChartLoading = false;
+      });
+      return;
+    }
+
+    try {
+      final transactions = await _repository.getTransactionsByMonth(
+        month.year,
+        month.month,
+      );
+      if (mounted) {
+        setState(() {
+          _chartMonthTransactions = transactions;
+          _incomeByDate =
+              IncomeChartHelper.buildIncomeByDate(transactions);
+          _isChartLoading = false;
+          _chartError = null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _chartError = 'Gagal memuat grafik pemasukan.';
+          _isChartLoading = false;
+        });
+      }
+    }
+  }
+
   void _updateSelectedDayTransactions(DateTime day) {
-    // Jika tanggal berada dalam bulan berbeda dari _focusedDay,
-    // gunakan data yang ada (bisa kosong) — kalender akan reload saat onPageChanged.
     final key = _toDateKey(day);
     setState(() {
       _selectedDayTransactions = _monthTransactions[key] ?? [];
     });
   }
 
-  // Callback: user memilih tanggal di kalender.
   void _onDaySelected(DateTime selected, DateTime focused) {
     setState(() {
       _selectedDay = selected;
@@ -148,31 +206,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _updateSelectedDayTransactions(selected);
   }
 
-  // Callback: user berpindah bulan.
   Future<void> _onPageChanged(DateTime focused) async {
     setState(() => _focusedDay = focused);
-    await _loadMonthTransactions(focused);
-    // Setelah bulan baru dimuat, tampilkan transaksi tanggal terpilih.
+    await _loadMonthData(focused);
     if (mounted) _updateSelectedDayTransactions(_selectedDay);
   }
 
-  // Navigasi ke IncomeScreen dan refresh semua data saat kembali.
+  // --- Navigasi bulan grafik ---
+  void _onChartPreviousMonth() {
+    final prev = DateTime(_chartMonth.year, _chartMonth.month - 1);
+    setState(() => _chartMonth = prev);
+    _loadChartMonthData(prev);
+  }
+
+  void _onChartNextMonth() {
+    final next = DateTime(_chartMonth.year, _chartMonth.month + 1);
+    setState(() => _chartMonth = next);
+    _loadChartMonthData(next);
+  }
+
   Future<void> _goToIncome() async {
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const IncomeScreen()),
     );
     await _loadAll();
+    // Refresh grafik jika bulan grafik sama dengan bulan kalender saat ini.
+    await _loadChartMonthData(_chartMonth);
   }
 
-  // Navigasi ke ExpenseScreen dan refresh semua data saat kembali.
   Future<void> _goToExpense() async {
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const ExpenseScreen()),
     );
     await _loadAll();
+    await _loadChartMonthData(_chartMonth);
   }
 
-  // Konversi DateTime ke string key 'YYYY-MM-DD'.
   static String _toDateKey(DateTime date) {
     final m = date.month.toString().padLeft(2, '0');
     final d = date.day.toString().padLeft(2, '0');
@@ -191,7 +260,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Refresh',
-            onPressed: _loadAll,
+            onPressed: () async {
+              await _loadAll();
+              await _loadChartMonthData(_chartMonth);
+            },
           ),
         ],
       ),
@@ -228,7 +300,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
 
     return RefreshIndicator(
-      onRefresh: _loadAll,
+      onRefresh: () async {
+        await _loadAll();
+        await _loadChartMonthData(_chartMonth);
+      },
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
@@ -283,7 +358,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               )
             else ...[
-              // Kalender
               TransactionCalendar(
                 monthTransactions: _monthTransactions,
                 selectedDay: _selectedDay,
@@ -292,8 +366,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 onPageChanged: _onPageChanged,
               ),
               const SizedBox(height: 16),
-
-              // Daftar transaksi tanggal terpilih
               SelectedDayTransactionList(
                 selectedDay: _selectedDay,
                 transactions: _selectedDayTransactions,
@@ -303,11 +375,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
             const SizedBox(height: 20),
 
+            // --- Section Grafik Pemasukan ---
+            _sectionHeader('Grafik Pemasukan'),
+            const SizedBox(height: 8),
+
+            IncomeChart(
+              incomeByDate: _incomeByDate,
+              year: _chartMonth.year,
+              month: _chartMonth.month,
+              onPreviousMonth: _onChartPreviousMonth,
+              onNextMonth: _onChartNextMonth,
+              isLoading: _isChartLoading,
+              errorMessage: _chartError,
+            ),
+
+            const SizedBox(height: 20),
+
             // --- Section Menu ---
             _sectionHeader('Menu'),
             const SizedBox(height: 8),
 
-            // Tombol Pemasukan
             _MenuButton(
               label: 'Pemasukan',
               subtitle: 'Tambah & kelola pemasukan',
@@ -317,7 +404,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             const SizedBox(height: 12),
 
-            // Tombol Pengeluaran
             _MenuButton(
               label: 'Pengeluaran',
               subtitle: 'Tambah & kelola pengeluaran',
@@ -333,7 +419,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // Header section dengan gaya konsisten.
   Widget _sectionHeader(String title) {
     return Row(
       children: [
@@ -360,7 +445,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 // ---------------------------------------------------------------------------
 class _BalanceCard extends StatelessWidget {
   final double balance;
-
   const _BalanceCard({required this.balance});
 
   @override
@@ -408,10 +492,7 @@ class _BalanceCard extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 'Pengeluaran melebihi pemasukan',
-                style: TextStyle(
-                  color: Colors.red.shade200,
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: Colors.red.shade200, fontSize: 12),
               ),
             ],
           ],
@@ -422,7 +503,7 @@ class _BalanceCard extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Widget: Card ringkasan (pemasukan / pengeluaran)
+// Widget: Card ringkasan
 // ---------------------------------------------------------------------------
 class _SummaryCard extends StatelessWidget {
   final String label;
@@ -486,7 +567,7 @@ class _SummaryCard extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Widget: Tombol menu navigasi ke Income/Expense
+// Widget: Tombol menu
 // ---------------------------------------------------------------------------
 class _MenuButton extends StatelessWidget {
   final String label;

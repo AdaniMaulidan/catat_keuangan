@@ -1,210 +1,131 @@
 import 'package:flutter/material.dart';
-import 'database/database_helper.dart';
 import 'models/transaction_model.dart';
+import 'repositories/transaction_repository.dart';
 
 void main() async {
   // Diperlukan sebelum menggunakan plugin native (sqflite) di main().
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Inisialisasi SQLite untuk platform desktop (Windows/Linux/macOS).
-  // Di Android/iOS, baris ini tidak berpengaruh.
-  DatabaseHelper.initForDesktop();
-
-  // Jalankan test database hanya saat mode debug.
+  // Jalankan test repository hanya saat mode debug.
+  // Blok assert tidak dieksekusi di mode release/production.
   assert(() {
-    _testDatabase();
+    _testRepository();
     return true;
   }());
 
   runApp(const MyApp());
 }
 
-// Fungsi testing database — hanya untuk verifikasi Langkah 3.
-// Akan dihapus pada langkah berikutnya saat UI sudah dibuat.
-Future<void> _testDatabase() async {
-  final db = DatabaseHelper();
-  debugPrint('=== DATABASE TEST START ===');
+// Test sederhana untuk memverifikasi seluruh repository API bekerja.
+// Akan dihapus setelah UI selesai dibuat.
+Future<void> _testRepository() async {
+  final repo = TransactionRepository();
+  debugPrint('=== REPOSITORY TEST START ===');
 
-  // 1. INSERT — Tambah contoh pemasukan
-  final incomeId = await db.insertTransaction(
+  // --- CREATE ---
+  const today = '2026-09-24';
+
+  final incomeId = await repo.addTransaction(
     TransactionModel(
-      type: 'income',
+      type: TransactionModel.income,
       amount: 5000000,
       description: 'Gaji September',
-      date: '2026-09-23',
+      date: today,
     ),
   );
-  debugPrint('[INSERT] Pemasukan berhasil, id: $incomeId');
+  debugPrint('[CREATE] income id: $incomeId');
 
-  // 2. INSERT — Tambah contoh pengeluaran
-  final expenseId = await db.insertTransaction(
+  final expenseId = await repo.addTransaction(
     TransactionModel(
-      type: 'expense',
-      amount: 25000,
+      type: TransactionModel.expense,
+      amount: 75000,
       description: 'Makan siang',
-      date: '2026-09-23',
+      date: today,
     ),
   );
-  debugPrint('[INSERT] Pengeluaran berhasil, id: $expenseId');
+  debugPrint('[CREATE] expense id: $expenseId');
 
-  // 3. READ — Baca semua transaksi
-  final all = await db.getAllTransactions();
-  debugPrint('[READ] Total transaksi: ${all.length}');
-  for (final t in all) {
-    debugPrint('  -> $t');
-  }
+  // --- READ: semua transaksi ---
+  final all = await repo.getAllTransactions();
+  debugPrint('[READ] getAllTransactions: ${all.length} transaksi');
 
-  // 4. READ — Filter berdasarkan tanggal (untuk kalender)
-  final byDate = await db.getTransactionsByDate('2026-09-23');
-  debugPrint('[READ] Transaksi tanggal 2026-09-23: ${byDate.length}');
+  // --- READ: berdasarkan tipe ---
+  final incomes = await repo.getIncomeTransactions();
+  debugPrint('[READ] getIncomeTransactions: ${incomes.length}');
 
-  // 5. READ — Filter berdasarkan bulan (untuk grafik)
-  final byMonth = await db.getTransactionsByMonth(2026, 9);
-  debugPrint('[READ] Transaksi bulan September 2026: ${byMonth.length}');
+  final expenses = await repo.getExpenseTransactions();
+  debugPrint('[READ] getExpenseTransactions: ${expenses.length}');
 
-  // 6. READ — Kalkulasi total dan saldo
-  final totalIncome = await db.getTotalByType('income');
-  final totalExpense = await db.getTotalByType('expense');
-  final balance = await db.getBalance();
-  debugPrint('[CALC] Total pemasukan : $totalIncome');
-  debugPrint('[CALC] Total pengeluaran: $totalExpense');
-  debugPrint('[CALC] Saldo           : $balance');
+  // --- READ: berdasarkan tanggal (kalender) ---
+  final byDate = await repo.getTransactionsByDate(today);
+  debugPrint('[READ] getTransactionsByDate($today): ${byDate.length}');
 
-  // 7. UPDATE — Ubah nominal pemasukan
-  final updated = all.firstWhere((t) => t.type == 'income');
-  await db.updateTransaction(updated.copyWith(amount: 6000000));
-  final afterUpdate = await db.getTotalByType('income');
-  debugPrint('[UPDATE] Pemasukan setelah update: $afterUpdate');
+  // --- READ: berdasarkan bulan (grafik) ---
+  final byMonth = await repo.getTransactionsByMonth(2026, 9);
+  debugPrint('[READ] getTransactionsByMonth(2026,9): ${byMonth.length}');
 
-  // 8. DELETE — Hapus pengeluaran
-  final deleted = all.firstWhere((t) => t.type == 'expense');
-  final deleteCount = await db.deleteTransaction(deleted.id!);
-  debugPrint('[DELETE] Baris terhapus: $deleteCount');
+  // --- AGREGASI ---
+  final totalIncome = await repo.getTotalIncome();
+  final totalExpense = await repo.getTotalExpense();
+  final balance = await repo.getBalance();
+  debugPrint('[CALC] getTotalIncome  : $totalIncome');
+  debugPrint('[CALC] getTotalExpense : $totalExpense');
+  debugPrint('[CALC] getBalance      : $balance');
 
-  // 9. READ FINAL — Verifikasi setelah delete
-  final finalAll = await db.getAllTransactions();
-  debugPrint('[READ FINAL] Total transaksi tersisa: ${finalAll.length}');
+  // --- UPDATE ---
+  final toUpdate = all.firstWhere((t) => t.isIncome);
+  final rowsUpdated = await repo.updateTransaction(
+    toUpdate.copyWith(amount: 6000000, description: 'Gaji September (revisi)'),
+  );
+  debugPrint('[UPDATE] rows updated: $rowsUpdated');
+  final afterUpdate = await repo.getTotalIncome();
+  debugPrint('[UPDATE] total income setelah update: $afterUpdate');
 
-  debugPrint('=== DATABASE TEST END ===');
+  // --- DELETE ---
+  final toDelete = all.firstWhere((t) => t.isExpense);
+  final rowsDeleted = await repo.deleteTransaction(toDelete.id!);
+  debugPrint('[DELETE] rows deleted: $rowsDeleted');
+  final afterDelete = await repo.getAllTransactions();
+  debugPrint('[DELETE] total transaksi tersisa: ${afterDelete.length}');
+
+  debugPrint('=== REPOSITORY TEST END ===');
 }
-
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Catat Keuangan',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
         useMaterial3: true,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: const _PlaceholderScreen(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
-  }
+// Placeholder sementara — akan diganti dengan halaman utama pada langkah UI.
+class _PlaceholderScreen extends StatelessWidget {
+  const _PlaceholderScreen();
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
       appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
+        title: const Text('Catat Keuangan'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text(
-              'You have pushed the button this many times:',
-            ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
+      body: const Center(
+        child: Text(
+          'Fondasi data siap.\nUI akan dibuat pada langkah berikutnya.',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 16),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
 }

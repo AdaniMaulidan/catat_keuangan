@@ -1,11 +1,14 @@
-import 'dart:io';
 import 'package:sqflite/sqflite.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path/path.dart';
 import '../models/transaction_model.dart';
 
 // DatabaseHelper menggunakan pola Singleton agar seluruh aplikasi
 // berbagi satu instance koneksi database yang sama.
+//
+// Catatan platform:
+// - Android/iOS: sqflite bekerja langsung tanpa konfigurasi tambahan.
+// - Windows/Linux/macOS: panggil DatabaseHelper.initForDesktop() dari main()
+//   sebelum database diakses. Membutuhkan package sqflite_common_ffi.
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
   factory DatabaseHelper() => _instance;
@@ -17,24 +20,13 @@ class DatabaseHelper {
   static const String _dbName = 'catat_keuangan.db';
   static const int _dbVersion = 1;
 
-  // Nama tabel dan kolom.
+  // Nama tabel dan kolom — dijadikan konstanta untuk menghindari typo.
   static const String tableTransactions = 'transactions';
   static const String colId = 'id';
   static const String colType = 'type';
   static const String colAmount = 'amount';
   static const String colDescription = 'description';
   static const String colDate = 'date';
-
-  // Inisialisasi FFI untuk platform desktop (Windows/Linux/macOS).
-  // Dipanggil sekali dari main() sebelum database diakses.
-  // Tidak diperlukan di Android/iOS.
-  static void initForDesktop() {
-    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-      sqfliteFfiInit();
-      databaseFactory = databaseFactoryFfi;
-    }
-  }
-
 
   // Mendapatkan instance database. Jika belum ada, inisialisasi terlebih dahulu.
   Future<Database> get database async {
@@ -55,23 +47,23 @@ class DatabaseHelper {
     );
   }
 
-  // Dipanggil satu kali saat database pertama kali dibuat.
+  // Dipanggil satu kali saat database pertama kali dibuat di perangkat.
   Future<void> _onCreate(Database db, int version) async {
     await db.execute('''
       CREATE TABLE $tableTransactions (
         $colId          INTEGER PRIMARY KEY AUTOINCREMENT,
         $colType        TEXT    NOT NULL CHECK($colType IN ('income', 'expense')),
-        $colAmount      REAL    NOT NULL,
+        $colAmount      REAL    NOT NULL CHECK($colAmount > 0),
         $colDescription TEXT    NOT NULL,
         $colDate        TEXT    NOT NULL
       )
     ''');
   }
 
-  // -------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
   // CREATE — Menyimpan satu transaksi baru ke database.
   // Mengembalikan id dari baris yang baru dimasukkan.
-  // -------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
   Future<int> insertTransaction(TransactionModel transaction) async {
     final db = await database;
     return await db.insert(
@@ -81,9 +73,9 @@ class DatabaseHelper {
     );
   }
 
-  // -------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
   // READ — Mengambil semua transaksi, diurutkan dari yang terbaru.
-  // -------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
   Future<List<TransactionModel>> getAllTransactions() async {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
@@ -106,6 +98,7 @@ class DatabaseHelper {
   }
 
   // READ — Mengambil transaksi berdasarkan tanggal tertentu (untuk kalender).
+  // Parameter date: format 'YYYY-MM-DD'.
   Future<List<TransactionModel>> getTransactionsByDate(String date) async {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
@@ -130,19 +123,19 @@ class DatabaseHelper {
 
     final List<Map<String, dynamic>> maps = await db.query(
       tableTransactions,
-      where: "$colDate LIKE ?",
+      where: '$colDate LIKE ?',
       whereArgs: ['$prefix%'],
-      orderBy: '$colDate ASC',
+      orderBy: '$colDate ASC, $colId ASC',
     );
     return maps.map((map) => TransactionModel.fromMap(map)).toList();
   }
 
   // READ — Menghitung total nominal berdasarkan jenis transaksi.
-  // Digunakan untuk menampilkan total pemasukan, pengeluaran, dan saldo.
+  // Mengembalikan 0.0 jika tidak ada data.
   Future<double> getTotalByType(String type) async {
     final db = await database;
     final result = await db.rawQuery(
-      'SELECT SUM($colAmount) as total FROM $tableTransactions WHERE $colType = ?',
+      'SELECT SUM($colAmount) AS total FROM $tableTransactions WHERE $colType = ?',
       [type],
     );
     final total = result.first['total'];
@@ -152,16 +145,17 @@ class DatabaseHelper {
 
   // READ — Menghitung saldo (total pemasukan - total pengeluaran).
   Future<double> getBalance() async {
-    final totalIncome = await getTotalByType('income');
-    final totalExpense = await getTotalByType('expense');
+    final totalIncome = await getTotalByType(TransactionModel.income);
+    final totalExpense = await getTotalByType(TransactionModel.expense);
     return totalIncome - totalExpense;
   }
 
-  // -------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
   // UPDATE — Memperbarui data transaksi yang sudah ada berdasarkan id.
-  // Mengembalikan jumlah baris yang berhasil diperbarui.
-  // -------------------------------------------------------------------------
+  // Mengembalikan jumlah baris yang berhasil diperbarui (0 jika tidak ditemukan).
+  // ---------------------------------------------------------------------------
   Future<int> updateTransaction(TransactionModel transaction) async {
+    assert(transaction.id != null, 'updateTransaction: id tidak boleh null');
     final db = await database;
     return await db.update(
       tableTransactions,
@@ -171,10 +165,10 @@ class DatabaseHelper {
     );
   }
 
-  // -------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
   // DELETE — Menghapus satu transaksi berdasarkan id.
   // Mengembalikan jumlah baris yang berhasil dihapus.
-  // -------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
   Future<int> deleteTransaction(int id) async {
     final db = await database;
     return await db.delete(
@@ -184,7 +178,7 @@ class DatabaseHelper {
     );
   }
 
-  // Menutup koneksi database. Dipanggil saat aplikasi ditutup (opsional).
+  // Menutup koneksi database. Opsional — biasanya tidak perlu dipanggil manual.
   Future<void> close() async {
     final db = _db;
     if (db != null) {

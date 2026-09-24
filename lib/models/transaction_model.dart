@@ -1,14 +1,18 @@
 // Model untuk data transaksi (pemasukan dan pengeluaran).
 // Field `type` digunakan untuk membedakan jenis transaksi:
-//   - 'income'  : pemasukan
-//   - 'expense' : pengeluaran
+//   - TransactionModel.income  → 'income'  : pemasukan
+//   - TransactionModel.expense → 'expense' : pengeluaran
 
 class TransactionModel {
-  final int? id;
-  final String type; // 'income' atau 'expense'
-  final double amount; // nominal dalam angka, bukan format Rupiah
-  final String description; // keterangan
-  final String date; // format: 'YYYY-MM-DD'
+  // Konstanta tipe transaksi — gunakan ini agar tidak ada typo string.
+  static const String income = 'income';
+  static const String expense = 'expense';
+
+  final int? id; // nullable: null ketika transaksi belum disimpan ke DB
+  final String type; // hanya 'income' atau 'expense'
+  final double amount; // nominal angka positif, bukan format Rupiah
+  final String description; // keterangan transaksi, tidak boleh kosong
+  final String date; // format: 'YYYY-MM-DD', misal '2026-09-24'
 
   TransactionModel({
     this.id,
@@ -16,7 +20,20 @@ class TransactionModel {
     required this.amount,
     required this.description,
     required this.date,
-  });
+  }) : assert(
+         type == income || type == expense,
+         'type harus "income" atau "expense", bukan "$type"',
+       ),
+       assert(amount > 0, 'amount harus lebih besar dari 0'),
+       assert(description.isNotEmpty, 'description tidak boleh kosong'),
+       assert(
+         RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(date),
+         'date harus dalam format YYYY-MM-DD, bukan "$date"',
+       );
+
+  // Helper getter untuk memudahkan pengecekan tipe tanpa membandingkan string.
+  bool get isIncome => type == income;
+  bool get isExpense => type == expense;
 
   // Konversi dari Map (hasil query SQLite) ke objek TransactionModel.
   factory TransactionModel.fromMap(Map<String, dynamic> map) {
@@ -30,6 +47,7 @@ class TransactionModel {
   }
 
   // Konversi dari objek TransactionModel ke Map untuk disimpan ke SQLite.
+  // id tidak disertakan ketika null (insert baru), agar AUTOINCREMENT bekerja.
   Map<String, dynamic> toMap() {
     return {
       if (id != null) 'id': id,
@@ -62,4 +80,23 @@ class TransactionModel {
     return 'TransactionModel(id: $id, type: $type, amount: $amount, '
         'description: $description, date: $date)';
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is TransactionModel &&
+        other.id == id &&
+        other.type == type &&
+        other.amount == amount &&
+        other.description == description &&
+        other.date == date;
+  }
+
+  @override
+  int get hashCode =>
+      id.hashCode ^
+      type.hashCode ^
+      amount.hashCode ^
+      description.hashCode ^
+      date.hashCode;
 }

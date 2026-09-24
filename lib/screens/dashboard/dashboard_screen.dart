@@ -1,3 +1,4 @@
+// ignore_for_file: unused_field, unused_element, unused_import
 import 'package:flutter/material.dart';
 import '../../models/transaction_model.dart';
 import '../../repositories/transaction_repository.dart';
@@ -413,76 +414,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 20),
 
-            // --- Section Kalender ---
-            _sectionHeader('Kalender Transaksi'),
-            const SizedBox(height: 8),
-
-            if (_isCalendarLoading)
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 24),
-                  child: CircularProgressIndicator(),
-                ),
-              )
-            else if (_calendarError != null)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Text(
-                  _calendarError!,
-                  style: TextStyle(color: Colors.red.shade700),
-                ),
-              )
-            else ...[
-              TransactionCalendar(
-                monthTransactions: _monthTransactions,
-                selectedDay: _selectedDay,
-                focusedDay: _focusedDay,
-                onDaySelected: _onDaySelected,
-                onPageChanged: _onPageChanged,
-              ),
-              const SizedBox(height: 16),
-              SelectedDayTransactionList(
-                selectedDay: _selectedDay,
-                transactions: _selectedDayTransactions,
-                isLoading: false,
-              ),
-            ],
-
-            const SizedBox(height: 20),
-
-            // --- Section Grafik Pemasukan ---
-            _sectionHeader('Grafik Pemasukan'),
-            const SizedBox(height: 8),
-
-            IncomeChart(
-              incomeByDate: _incomeByDate,
-              year: _chartMonth.year,
-              month: _chartMonth.month,
-              onPreviousMonth: _onChartPreviousMonth,
-              onNextMonth: _onChartNextMonth,
-              isLoading: _isChartLoading,
-              errorMessage: _chartError,
-            ),
-
-            const SizedBox(height: 20),
-
-            // --- Section Grafik Pengeluaran ---
-            _sectionHeader('Grafik Pengeluaran'),
-            const SizedBox(height: 8),
-
-            ExpenseChart(
-              expenseByDate: _expenseByDate,
-              year: _expenseChartMonth.year,
-              month: _expenseChartMonth.month,
-              onPreviousMonth: _onExpenseChartPreviousMonth,
-              onNextMonth: _onExpenseChartNextMonth,
-              isLoading: _isExpenseChartLoading,
-              errorMessage: _expenseChartError,
-            ),
-
-            const SizedBox(height: 20),
 
             // --- Section Menu ---
             _sectionHeader('Menu'),

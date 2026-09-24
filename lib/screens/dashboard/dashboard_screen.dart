@@ -328,7 +328,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
-        title: const Text('Catat Keuangan'),
+        title: const Text('AyoHemat'),
         backgroundColor: Colors.green.shade700,
         foregroundColor: Colors.white,
         actions: [

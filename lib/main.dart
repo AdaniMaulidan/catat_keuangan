@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'screens/dashboard/dashboard_screen.dart';
 
 void main() async {
   // Diperlukan sebelum menggunakan plugin native (sqflite) di main().
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Inisialisasi locale id_ID untuk Kalender dan DateFormat
+  await initializeDateFormatting('id_ID', null);
+  
   runApp(const MyApp());
 }
 

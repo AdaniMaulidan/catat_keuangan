@@ -27,16 +27,22 @@ class _IncomeFormScreenState extends State<IncomeFormScreen> {
   final _repository = TransactionRepository();
   bool _isSaving = false;
 
+  DateTime? _selectedDate;
+
   bool get _isEditMode => widget.transaction != null;
 
   @override
   void initState() {
     super.initState();
-    // Jika mode edit, isi field dengan data yang sudah ada.
     if (_isEditMode) {
       _amountController.text =
           widget.transaction!.amount.toStringAsFixed(0);
       _descriptionController.text = widget.transaction!.description;
+      try {
+        _selectedDate = DateTime.parse(widget.transaction!.date);
+      } catch (_) {
+        _selectedDate = null;
+      }
     }
   }
 
@@ -47,22 +53,38 @@ class _IncomeFormScreenState extends State<IncomeFormScreen> {
     super.dispose();
   }
 
-  // Mendapatkan tanggal hari ini dalam format YYYY-MM-DD.
-  String _getTodayDate() {
+  String _formatDate(DateTime date) {
+    final month = date.month.toString().padLeft(2, '0');
+    final day = date.day.toString().padLeft(2, '0');
+    return '${date.year}-$month-$day';
+  }
+
+  Future<void> _pickDate() async {
     final now = DateTime.now();
-    final month = now.month.toString().padLeft(2, '0');
-    final day = now.day.toString().padLeft(2, '0');
-    return '${now.year}-$month-$day';
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate ?? now,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedDate = picked;
+      });
+    }
   }
 
   Future<void> _save() async {
-    // Validasi form — jika ada field yang invalid, hentikan.
     if (!_formKey.currentState!.validate()) return;
+
+    if (_selectedDate == null) {
+      _showError('Silakan pilih tanggal transaksi terlebih dahulu.');
+      return;
+    }
 
     final amountText = _amountController.text.trim();
     final description = _descriptionController.text.trim();
 
-    // Parse nominal — validasi tambahan untuk memastikan angka valid.
     final amount = double.tryParse(amountText);
     if (amount == null || amount <= 0) {
       _showError('Nominal tidak valid.');
@@ -73,25 +95,23 @@ class _IncomeFormScreenState extends State<IncomeFormScreen> {
 
     try {
       if (_isEditMode) {
-        // Mode edit: pertahankan id, type, dan tanggal asli.
         final updated = widget.transaction!.copyWith(
           amount: amount,
           description: description,
+          date: _formatDate(_selectedDate!),
         );
         await _repository.updateTransaction(updated);
       } else {
-        // Mode tambah: gunakan tanggal hari ini.
         final newTransaction = TransactionModel(
           type: TransactionModel.income,
           amount: amount,
           description: description,
-          date: _getTodayDate(),
+          date: _formatDate(_selectedDate!),
         );
         await _repository.addTransaction(newTransaction);
       }
 
       if (mounted) {
-        // Kembalikan true ke screen pemanggil untuk trigger refresh.
         Navigator.of(context).pop(true);
       }
     } catch (e) {
@@ -138,7 +158,6 @@ class _IncomeFormScreenState extends State<IncomeFormScreen> {
                 controller: _amountController,
                 keyboardType: TextInputType.number,
                 inputFormatters: [
-                  // Hanya boleh angka
                   FilteringTextInputFormatter.digitsOnly,
                 ],
                 decoration: InputDecoration(
@@ -187,26 +206,29 @@ class _IncomeFormScreenState extends State<IncomeFormScreen> {
               ),
               const SizedBox(height: 16),
 
-              // --- Info Tanggal (read-only) ---
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  border: Border.all(color: Colors.grey.shade400),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.calendar_today,
-                        size: 18, color: Colors.grey.shade600),
-                    const SizedBox(width: 8),
-                    Text(
-                      _isEditMode
-                          ? 'Tanggal: ${widget.transaction!.date}'
-                          : 'Tanggal: ${_getTodayDate()} (hari ini)',
-                      style: TextStyle(color: Colors.grey.shade700),
-                    ),
-                  ],
+              // --- Info Tanggal ---
+              InkWell(
+                onTap: _pickDate,
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    border: Border.all(color: Colors.grey.shade400),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.calendar_today,
+                          size: 18, color: Colors.grey.shade600),
+                      const SizedBox(width: 8),
+                      Text(
+                        _selectedDate != null
+                            ? 'Tanggal: ${_formatDate(_selectedDate!)}'
+                            : 'Pilih tanggal',
+                        style: TextStyle(color: Colors.grey.shade700),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 24),

@@ -4,6 +4,7 @@ import '../../repositories/transaction_repository.dart';
 import '../../utils/currency_formatter.dart';
 import '../../widgets/calendar/transaction_calendar.dart';
 import '../../widgets/charts/income_chart.dart';
+import '../../widgets/charts/expense_chart.dart';
 import '../income/income_screen.dart';
 import '../expense/expense_screen.dart';
 
@@ -13,6 +14,7 @@ import '../expense/expense_screen.dart';
 //   - Kalender transaksi dengan marker income (hijau) & expense (merah)
 //   - Daftar transaksi tanggal yang dipilih
 //   - Grafik pemasukan 1 bulan (line chart)
+//   - Grafik pengeluaran 1 bulan (line chart)
 //
 // Data diambil dari SQLite melalui TransactionRepository.
 class DashboardScreen extends StatefulWidget {
@@ -41,18 +43,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String? _calendarError;
 
   // --- State grafik pemasukan ---
-  // Bulan yang sedang ditampilkan grafik (independent dari kalender).
   late DateTime _chartMonth;
-  // Data transaksi bulan grafik — di-share dengan kalender jika bulan sama.
   List<TransactionModel> _chartMonthTransactions = [];
   Map<int, double> _incomeByDate = {};
   bool _isChartLoading = false;
   String? _chartError;
 
+  // --- State grafik pengeluaran ---
+  late DateTime _expenseChartMonth;
+  List<TransactionModel> _expenseChartMonthTransactions = [];
+  Map<int, double> _expenseByDate = {};
+  bool _isExpenseChartLoading = false;
+  String? _expenseChartError;
+
   @override
   void initState() {
     super.initState();
-    _chartMonth = DateTime(DateTime.now().year, DateTime.now().month);
+    final now = DateTime.now();
+    _chartMonth = DateTime(now.year, now.month);
+    _expenseChartMonth = DateTime(now.year, now.month);
     _loadAll();
   }
 
@@ -62,10 +71,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _loadSummary(),
       _loadMonthData(_focusedDay),
     ]);
+    
+    // Load expense chart specifically if its month is different from focused day.
+    // If it's the same, it's handled in _loadMonthData.
+    if (_expenseChartMonth.year != _focusedDay.year ||
+        _expenseChartMonth.month != _focusedDay.month) {
+      await _loadExpenseChartMonthData(_expenseChartMonth);
+    }
+    
+    // Load income chart specifically if its month is different from focused day.
+    if (_chartMonth.year != _focusedDay.year ||
+        _chartMonth.month != _focusedDay.month) {
+      await _loadChartMonthData(_chartMonth);
+    }
+
     if (mounted) _updateSelectedDayTransactions(_selectedDay);
   }
 
-  // Mengambil ringkasan keuangan.
   Future<void> _loadSummary() async {
     setState(() {
       _isLoading = true;
@@ -95,14 +117,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  // Mengambil transaksi satu bulan — dipakai oleh kalender DAN grafik.
-  // Jika bulan kalender == bulan grafik, query cukup sekali.
   Future<void> _loadMonthData(DateTime month) async {
     setState(() => _isCalendarLoading = true);
 
     final isChartMonth =
         month.year == _chartMonth.year && month.month == _chartMonth.month;
+    final isExpenseChartMonth =
+        month.year == _expenseChartMonth.year && month.month == _expenseChartMonth.month;
+
     if (isChartMonth) setState(() => _isChartLoading = true);
+    if (isExpenseChartMonth) setState(() => _isExpenseChartLoading = true);
 
     try {
       final transactions = await _repository.getTransactionsByMonth(
@@ -110,7 +134,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         month.month,
       );
 
-      // Kelompokkan untuk kalender.
       final map = <String, List<TransactionModel>>{};
       for (final t in transactions) {
         map.putIfAbsent(t.date, () => []).add(t);
@@ -122,13 +145,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
           _isCalendarLoading = false;
           _calendarError = null;
 
-          // Jika bulan ini juga bulan grafik, update data grafik sekaligus.
           if (isChartMonth) {
             _chartMonthTransactions = transactions;
-            _incomeByDate =
-                IncomeChartHelper.buildIncomeByDate(transactions);
+            _incomeByDate = IncomeChartHelper.buildIncomeByDate(transactions);
             _isChartLoading = false;
             _chartError = null;
+          }
+
+          if (isExpenseChartMonth) {
+            _expenseChartMonthTransactions = transactions;
+            _expenseByDate = ExpenseChartHelper.buildExpenseByDate(transactions);
+            _isExpenseChartLoading = false;
+            _expenseChartError = null;
           }
         });
       }
@@ -141,27 +169,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
             _chartError = 'Gagal memuat grafik pemasukan.';
             _isChartLoading = false;
           }
+          if (isExpenseChartMonth) {
+            _expenseChartError = 'Gagal memuat grafik pengeluaran.';
+            _isExpenseChartLoading = false;
+          }
         });
       }
     }
   }
 
-  // Mengambil data khusus untuk grafik (bulan berbeda dari kalender).
   Future<void> _loadChartMonthData(DateTime month) async {
     setState(() {
       _isChartLoading = true;
       _chartError = null;
     });
 
-    // Jika bulan grafik = bulan kalender, reuse data yang sudah ada.
-    if (month.year == _focusedDay.year &&
-        month.month == _focusedDay.month) {
+    if (month.year == _focusedDay.year && month.month == _focusedDay.month) {
       setState(() {
         _chartMonthTransactions = _monthTransactions.values
             .expand((list) => list)
             .toList();
-        _incomeByDate =
-            IncomeChartHelper.buildIncomeByDate(_chartMonthTransactions);
+        _incomeByDate = IncomeChartHelper.buildIncomeByDate(_chartMonthTransactions);
         _isChartLoading = false;
       });
       return;
@@ -175,8 +203,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (mounted) {
         setState(() {
           _chartMonthTransactions = transactions;
-          _incomeByDate =
-              IncomeChartHelper.buildIncomeByDate(transactions);
+          _incomeByDate = IncomeChartHelper.buildIncomeByDate(transactions);
           _isChartLoading = false;
           _chartError = null;
         });
@@ -186,6 +213,46 @@ class _DashboardScreenState extends State<DashboardScreen> {
         setState(() {
           _chartError = 'Gagal memuat grafik pemasukan.';
           _isChartLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadExpenseChartMonthData(DateTime month) async {
+    setState(() {
+      _isExpenseChartLoading = true;
+      _expenseChartError = null;
+    });
+
+    if (month.year == _focusedDay.year && month.month == _focusedDay.month) {
+      setState(() {
+        _expenseChartMonthTransactions = _monthTransactions.values
+            .expand((list) => list)
+            .toList();
+        _expenseByDate = ExpenseChartHelper.buildExpenseByDate(_expenseChartMonthTransactions);
+        _isExpenseChartLoading = false;
+      });
+      return;
+    }
+
+    try {
+      final transactions = await _repository.getTransactionsByMonth(
+        month.year,
+        month.month,
+      );
+      if (mounted) {
+        setState(() {
+          _expenseChartMonthTransactions = transactions;
+          _expenseByDate = ExpenseChartHelper.buildExpenseByDate(transactions);
+          _isExpenseChartLoading = false;
+          _expenseChartError = null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _expenseChartError = 'Gagal memuat grafik pengeluaran.';
+          _isExpenseChartLoading = false;
         });
       }
     }
@@ -212,7 +279,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (mounted) _updateSelectedDayTransactions(_selectedDay);
   }
 
-  // --- Navigasi bulan grafik ---
   void _onChartPreviousMonth() {
     final prev = DateTime(_chartMonth.year, _chartMonth.month - 1);
     setState(() => _chartMonth = prev);
@@ -225,13 +291,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _loadChartMonthData(next);
   }
 
+  void _onExpenseChartPreviousMonth() {
+    final prev = DateTime(_expenseChartMonth.year, _expenseChartMonth.month - 1);
+    setState(() => _expenseChartMonth = prev);
+    _loadExpenseChartMonthData(prev);
+  }
+
+  void _onExpenseChartNextMonth() {
+    final next = DateTime(_expenseChartMonth.year, _expenseChartMonth.month + 1);
+    setState(() => _expenseChartMonth = next);
+    _loadExpenseChartMonthData(next);
+  }
+
   Future<void> _goToIncome() async {
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const IncomeScreen()),
     );
     await _loadAll();
-    // Refresh grafik jika bulan grafik sama dengan bulan kalender saat ini.
-    await _loadChartMonthData(_chartMonth);
   }
 
   Future<void> _goToExpense() async {
@@ -239,7 +315,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       MaterialPageRoute(builder: (_) => const ExpenseScreen()),
     );
     await _loadAll();
-    await _loadChartMonthData(_chartMonth);
   }
 
   static String _toDateKey(DateTime date) {
@@ -262,7 +337,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             tooltip: 'Refresh',
             onPressed: () async {
               await _loadAll();
-              await _loadChartMonthData(_chartMonth);
             },
           ),
         ],
@@ -302,7 +376,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return RefreshIndicator(
       onRefresh: () async {
         await _loadAll();
-        await _loadChartMonthData(_chartMonth);
       },
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -387,6 +460,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
               onNextMonth: _onChartNextMonth,
               isLoading: _isChartLoading,
               errorMessage: _chartError,
+            ),
+
+            const SizedBox(height: 20),
+
+            // --- Section Grafik Pengeluaran ---
+            _sectionHeader('Grafik Pengeluaran'),
+            const SizedBox(height: 8),
+
+            ExpenseChart(
+              expenseByDate: _expenseByDate,
+              year: _expenseChartMonth.year,
+              month: _expenseChartMonth.month,
+              onPreviousMonth: _onExpenseChartPreviousMonth,
+              onNextMonth: _onExpenseChartNextMonth,
+              isLoading: _isExpenseChartLoading,
+              errorMessage: _expenseChartError,
             ),
 
             const SizedBox(height: 20),

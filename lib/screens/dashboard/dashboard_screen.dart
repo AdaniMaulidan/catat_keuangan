@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
+import '../../models/transaction_model.dart';
 import '../../repositories/transaction_repository.dart';
 import '../../utils/currency_formatter.dart';
+import '../../widgets/calendar/transaction_calendar.dart';
 import '../income/income_screen.dart';
 import '../expense/expense_screen.dart';
 
 // Dashboard adalah halaman utama aplikasi.
-// Menampilkan ringkasan keuangan: saldo, total pemasukan, total pengeluaran.
+// Menampilkan:
+//   - Saldo, Total Pemasukan, Total Pengeluaran
+//   - Kalender transaksi dengan marker income (hijau) & expense (merah)
+//   - Daftar transaksi tanggal yang dipilih
+//
 // Data diambil dari SQLite melalui TransactionRepository.
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -17,22 +23,45 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   final _repository = TransactionRepository();
 
-  // State keuangan
+  // --- State keuangan ---
   double _balance = 0;
   double _totalIncome = 0;
   double _totalExpense = 0;
-
   bool _isLoading = true;
   String? _errorMessage;
+
+  // --- State kalender ---
+  // focusedDay: bulan yang sedang ditampilkan kalender
+  DateTime _focusedDay = DateTime.now();
+  // selectedDay: tanggal yang sedang dipilih user
+  DateTime _selectedDay = DateTime.now();
+
+  // Transaksi bulan aktif, dikelompokkan per tanggal (key: 'YYYY-MM-DD').
+  // Digunakan untuk marker kalender — diambil sekali per bulan.
+  Map<String, List<TransactionModel>> _monthTransactions = {};
+
+  // Transaksi pada tanggal yang dipilih — ditampilkan di bawah kalender.
+  List<TransactionModel> _selectedDayTransactions = [];
+  bool _isCalendarLoading = false;
+  String? _calendarError;
 
   @override
   void initState() {
     super.initState();
-    _loadSummary();
+    _loadAll();
   }
 
-  // Mengambil ringkasan keuangan dari repository.
-  // Dipanggil saat pertama kali masuk dan setiap kali kembali dari CRUD.
+  // Memuat semua data: ringkasan keuangan + kalender bulan aktif.
+  Future<void> _loadAll() async {
+    await Future.wait([
+      _loadSummary(),
+      _loadMonthTransactions(_focusedDay),
+    ]);
+    // Setelah data bulan dimuat, tampilkan transaksi hari ini.
+    if (mounted) _updateSelectedDayTransactions(_selectedDay);
+  }
+
+  // Mengambil ringkasan keuangan (saldo, total pemasukan, pengeluaran).
   Future<void> _loadSummary() async {
     setState(() {
       _isLoading = true;
@@ -40,7 +69,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
 
     try {
-      // Ambil ketiga nilai secara bersamaan untuk efisiensi.
       final results = await Future.wait([
         _repository.getTotalIncome(),
         _repository.getTotalExpense(),
@@ -65,21 +93,90 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  // Navigasi ke IncomeScreen dan refresh dashboard saat kembali.
+  // Mengambil transaksi seluruh bulan dan kelompokkan ke map per tanggal.
+  // Efisien: satu query untuk seluruh bulan, bukan per tanggal.
+  Future<void> _loadMonthTransactions(DateTime month) async {
+    setState(() => _isCalendarLoading = true);
+
+    try {
+      final transactions = await _repository.getTransactionsByMonth(
+        month.year,
+        month.month,
+      );
+
+      // Kelompokkan berdasarkan tanggal ('YYYY-MM-DD').
+      final map = <String, List<TransactionModel>>{};
+      for (final t in transactions) {
+        map.putIfAbsent(t.date, () => []).add(t);
+      }
+
+      if (mounted) {
+        setState(() {
+          _monthTransactions = map;
+          _isCalendarLoading = false;
+          _calendarError = null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _calendarError = 'Gagal memuat kalender: $e';
+          _isCalendarLoading = false;
+        });
+      }
+    }
+  }
+
+  // Memperbarui daftar transaksi untuk tanggal yang dipilih.
+  // Menggunakan data yang sudah ada di _monthTransactions (tanpa query baru)
+  // jika tanggal masih dalam bulan yang sama dengan _focusedDay.
+  void _updateSelectedDayTransactions(DateTime day) {
+    // Jika tanggal berada dalam bulan berbeda dari _focusedDay,
+    // gunakan data yang ada (bisa kosong) — kalender akan reload saat onPageChanged.
+    final key = _toDateKey(day);
+    setState(() {
+      _selectedDayTransactions = _monthTransactions[key] ?? [];
+    });
+  }
+
+  // Callback: user memilih tanggal di kalender.
+  void _onDaySelected(DateTime selected, DateTime focused) {
+    setState(() {
+      _selectedDay = selected;
+      _focusedDay = focused;
+    });
+    _updateSelectedDayTransactions(selected);
+  }
+
+  // Callback: user berpindah bulan.
+  Future<void> _onPageChanged(DateTime focused) async {
+    setState(() => _focusedDay = focused);
+    await _loadMonthTransactions(focused);
+    // Setelah bulan baru dimuat, tampilkan transaksi tanggal terpilih.
+    if (mounted) _updateSelectedDayTransactions(_selectedDay);
+  }
+
+  // Navigasi ke IncomeScreen dan refresh semua data saat kembali.
   Future<void> _goToIncome() async {
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const IncomeScreen()),
     );
-    // Selalu refresh setelah kembali — data mungkin berubah.
-    await _loadSummary();
+    await _loadAll();
   }
 
-  // Navigasi ke ExpenseScreen dan refresh dashboard saat kembali.
+  // Navigasi ke ExpenseScreen dan refresh semua data saat kembali.
   Future<void> _goToExpense() async {
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const ExpenseScreen()),
     );
-    await _loadSummary();
+    await _loadAll();
+  }
+
+  // Konversi DateTime ke string key 'YYYY-MM-DD'.
+  static String _toDateKey(DateTime date) {
+    final m = date.month.toString().padLeft(2, '0');
+    final d = date.day.toString().padLeft(2, '0');
+    return '${date.year}-$m-$d';
   }
 
   @override
@@ -94,7 +191,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Refresh',
-            onPressed: _loadSummary,
+            onPressed: _loadAll,
           ),
         ],
       ),
@@ -121,7 +218,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             const SizedBox(height: 12),
             TextButton.icon(
-              onPressed: _loadSummary,
+              onPressed: _loadAll,
               icon: const Icon(Icons.refresh),
               label: const Text('Coba lagi'),
             ),
@@ -131,7 +228,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
 
     return RefreshIndicator(
-      onRefresh: _loadSummary,
+      onRefresh: _loadAll,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
@@ -164,28 +261,53 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
 
-            // --- Divider dengan label ---
-            Row(
-              children: [
-                const Expanded(child: Divider()),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Text(
-                    'Menu',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
+            // --- Section Kalender ---
+            _sectionHeader('Kalender Transaksi'),
+            const SizedBox(height: 8),
+
+            if (_isCalendarLoading)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: CircularProgressIndicator(),
                 ),
-                const Expanded(child: Divider()),
-              ],
-            ),
-            const SizedBox(height: 16),
+              )
+            else if (_calendarError != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Text(
+                  _calendarError!,
+                  style: TextStyle(color: Colors.red.shade700),
+                ),
+              )
+            else ...[
+              // Kalender
+              TransactionCalendar(
+                monthTransactions: _monthTransactions,
+                selectedDay: _selectedDay,
+                focusedDay: _focusedDay,
+                onDaySelected: _onDaySelected,
+                onPageChanged: _onPageChanged,
+              ),
+              const SizedBox(height: 16),
 
-            // --- Tombol Pemasukan ---
+              // Daftar transaksi tanggal terpilih
+              SelectedDayTransactionList(
+                selectedDay: _selectedDay,
+                transactions: _selectedDayTransactions,
+                isLoading: false,
+              ),
+            ],
+
+            const SizedBox(height: 20),
+
+            // --- Section Menu ---
+            _sectionHeader('Menu'),
+            const SizedBox(height: 8),
+
+            // Tombol Pemasukan
             _MenuButton(
               label: 'Pemasukan',
               subtitle: 'Tambah & kelola pemasukan',
@@ -195,7 +317,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             const SizedBox(height: 12),
 
-            // --- Tombol Pengeluaran ---
+            // Tombol Pengeluaran
             _MenuButton(
               label: 'Pengeluaran',
               subtitle: 'Tambah & kelola pengeluaran',
@@ -204,11 +326,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
               onTap: _goToExpense,
             ),
 
-            // Ruang untuk area bawah (placeholder Kalender & Grafik)
             const SizedBox(height: 32),
           ],
         ),
       ),
+    );
+  }
+
+  // Header section dengan gaya konsisten.
+  Widget _sectionHeader(String title) {
+    return Row(
+      children: [
+        const Expanded(child: Divider()),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Text(
+            title,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.shade600,
+            ),
+          ),
+        ),
+        const Expanded(child: Divider()),
+      ],
     );
   }
 }

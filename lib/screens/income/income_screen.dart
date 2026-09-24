@@ -156,8 +156,12 @@ class _IncomeScreenState extends State<IncomeScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Pemasukan'),
-        backgroundColor: Colors.green.shade600,
-        foregroundColor: Colors.white,
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0,
+        shape: const Border(
+          bottom: BorderSide(color: Colors.black, width: 1),
+        ),
         actions: [
           // Tombol refresh manual
           IconButton(

@@ -119,8 +119,12 @@ class _IncomeFormScreenState extends State<IncomeFormScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(title),
-        backgroundColor: Colors.green.shade600,
-        foregroundColor: Colors.white,
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0,
+        shape: const Border(
+          bottom: BorderSide(color: Colors.black, width: 1),
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),

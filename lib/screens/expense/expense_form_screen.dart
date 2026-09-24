@@ -119,8 +119,12 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(title),
-        backgroundColor: Colors.red.shade600,
-        foregroundColor: Colors.white,
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0,
+        shape: const Border(
+          bottom: BorderSide(color: Colors.black, width: 1),
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),

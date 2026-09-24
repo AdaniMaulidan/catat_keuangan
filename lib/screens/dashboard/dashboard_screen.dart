@@ -329,8 +329,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
         title: const Text('AyoHemat'),
-        backgroundColor: Colors.green.shade700,
-        foregroundColor: Colors.white,
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0,
+        shape: const Border(
+          bottom: BorderSide(color: Colors.black, width: 1),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),

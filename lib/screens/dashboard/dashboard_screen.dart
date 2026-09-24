@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../models/transaction_model.dart';
 import '../../repositories/transaction_repository.dart';
 import '../../utils/currency_formatter.dart';
-import '../../widgets/calendar/transaction_calendar.dart';
 import '../../widgets/charts/income_chart.dart';
 import '../../widgets/charts/expense_chart.dart';
 import '../income/income_screen.dart';
@@ -35,14 +34,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isLoading = true;
   String? _errorMessage;
 
-  // --- State kalender ---
-  DateTime _focusedDay = DateTime.now();
-  DateTime _selectedDay = DateTime.now();
-  Map<String, List<TransactionModel>> _monthTransactions = {};
-  List<TransactionModel> _selectedDayTransactions = [];
-  bool _isCalendarLoading = false;
-  String? _calendarError;
-
   // --- State grafik pemasukan ---
   late DateTime _chartMonth;
   List<TransactionModel> _chartMonthTransactions = [];
@@ -70,23 +61,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _loadAll() async {
     await Future.wait([
       _loadSummary(),
-      _loadMonthData(_focusedDay),
+      _loadChartMonthData(_chartMonth),
+      _loadExpenseChartMonthData(_expenseChartMonth),
     ]);
-    
-    // Load expense chart specifically if its month is different from focused day.
-    // If it's the same, it's handled in _loadMonthData.
-    if (_expenseChartMonth.year != _focusedDay.year ||
-        _expenseChartMonth.month != _focusedDay.month) {
-      await _loadExpenseChartMonthData(_expenseChartMonth);
-    }
-    
-    // Load income chart specifically if its month is different from focused day.
-    if (_chartMonth.year != _focusedDay.year ||
-        _chartMonth.month != _focusedDay.month) {
-      await _loadChartMonthData(_chartMonth);
-    }
-
-    if (mounted) _updateSelectedDayTransactions(_selectedDay);
   }
 
   Future<void> _loadSummary() async {
@@ -118,83 +95,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  Future<void> _loadMonthData(DateTime month) async {
-    setState(() => _isCalendarLoading = true);
-
-    final isChartMonth =
-        month.year == _chartMonth.year && month.month == _chartMonth.month;
-    final isExpenseChartMonth =
-        month.year == _expenseChartMonth.year && month.month == _expenseChartMonth.month;
-
-    if (isChartMonth) setState(() => _isChartLoading = true);
-    if (isExpenseChartMonth) setState(() => _isExpenseChartLoading = true);
-
-    try {
-      final transactions = await _repository.getTransactionsByMonth(
-        month.year,
-        month.month,
-      );
-
-      final map = <String, List<TransactionModel>>{};
-      for (final t in transactions) {
-        map.putIfAbsent(t.date, () => []).add(t);
-      }
-
-      if (mounted) {
-        setState(() {
-          _monthTransactions = map;
-          _isCalendarLoading = false;
-          _calendarError = null;
-
-          if (isChartMonth) {
-            _chartMonthTransactions = transactions;
-            _incomeByDate = IncomeChartHelper.buildIncomeByDate(transactions);
-            _isChartLoading = false;
-            _chartError = null;
-          }
-
-          if (isExpenseChartMonth) {
-            _expenseChartMonthTransactions = transactions;
-            _expenseByDate = ExpenseChartHelper.buildExpenseByDate(transactions);
-            _isExpenseChartLoading = false;
-            _expenseChartError = null;
-          }
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _calendarError = 'Gagal memuat kalender: $e';
-          _isCalendarLoading = false;
-          if (isChartMonth) {
-            _chartError = 'Gagal memuat grafik pemasukan.';
-            _isChartLoading = false;
-          }
-          if (isExpenseChartMonth) {
-            _expenseChartError = 'Gagal memuat grafik pengeluaran.';
-            _isExpenseChartLoading = false;
-          }
-        });
-      }
-    }
-  }
-
   Future<void> _loadChartMonthData(DateTime month) async {
     setState(() {
       _isChartLoading = true;
       _chartError = null;
     });
-
-    if (month.year == _focusedDay.year && month.month == _focusedDay.month) {
-      setState(() {
-        _chartMonthTransactions = _monthTransactions.values
-            .expand((list) => list)
-            .toList();
-        _incomeByDate = IncomeChartHelper.buildIncomeByDate(_chartMonthTransactions);
-        _isChartLoading = false;
-      });
-      return;
-    }
 
     try {
       final transactions = await _repository.getTransactionsByMonth(
@@ -225,17 +130,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _expenseChartError = null;
     });
 
-    if (month.year == _focusedDay.year && month.month == _focusedDay.month) {
-      setState(() {
-        _expenseChartMonthTransactions = _monthTransactions.values
-            .expand((list) => list)
-            .toList();
-        _expenseByDate = ExpenseChartHelper.buildExpenseByDate(_expenseChartMonthTransactions);
-        _isExpenseChartLoading = false;
-      });
-      return;
-    }
-
     try {
       final transactions = await _repository.getTransactionsByMonth(
         month.year,
@@ -257,27 +151,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         });
       }
     }
-  }
-
-  void _updateSelectedDayTransactions(DateTime day) {
-    final key = _toDateKey(day);
-    setState(() {
-      _selectedDayTransactions = _monthTransactions[key] ?? [];
-    });
-  }
-
-  void _onDaySelected(DateTime selected, DateTime focused) {
-    setState(() {
-      _selectedDay = selected;
-      _focusedDay = focused;
-    });
-    _updateSelectedDayTransactions(selected);
-  }
-
-  Future<void> _onPageChanged(DateTime focused) async {
-    setState(() => _focusedDay = focused);
-    await _loadMonthData(focused);
-    if (mounted) _updateSelectedDayTransactions(_selectedDay);
   }
 
   void _onChartPreviousMonth() {
@@ -316,12 +189,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       MaterialPageRoute(builder: (_) => const ExpenseScreen()),
     );
     await _loadAll();
-  }
-
-  static String _toDateKey(DateTime date) {
-    final m = date.month.toString().padLeft(2, '0');
-    final d = date.day.toString().padLeft(2, '0');
-    return '${date.year}-$m-$d';
   }
 
   @override

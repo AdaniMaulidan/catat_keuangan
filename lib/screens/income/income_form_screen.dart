@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../../models/transaction_model.dart';
 import '../../repositories/transaction_repository.dart';
+import '../../utils/currency_formatter.dart';
 
 // Form untuk menambah atau mengedit pemasukan.
 //
@@ -41,7 +41,7 @@ class _IncomeFormScreenState extends State<IncomeFormScreen> {
     super.initState();
     if (_isEditMode) {
       _amountController.text =
-          widget.transaction!.amount.toStringAsFixed(0);
+          CurrencyFormatter.formatNumberOnly(widget.transaction!.amount);
       _descriptionController.text = widget.transaction!.description;
       try {
         _selectedDate = DateTime.parse(widget.transaction!.date);
@@ -89,14 +89,13 @@ class _IncomeFormScreenState extends State<IncomeFormScreen> {
       return;
     }
 
-    final amountText = _amountController.text.trim();
-    final description = _descriptionController.text.trim();
-
-    final amount = double.tryParse(amountText);
+    final amount = CurrencyFormatter.parse(_amountController.text);
     if (amount == null || amount <= 0) {
       _showError('Nominal tidak valid.');
       return;
     }
+
+    final description = _descriptionController.text.trim();
 
     setState(() => _isSaving = true);
 
@@ -165,11 +164,11 @@ class _IncomeFormScreenState extends State<IncomeFormScreen> {
                 controller: _amountController,
                 keyboardType: TextInputType.number,
                 inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
+                  ThousandsSeparatorInputFormatter(),
                 ],
                 decoration: InputDecoration(
                   labelText: 'Nominal',
-                  hintText: 'Contoh: 5000000',
+                  hintText: 'Contoh: 5.000.000',
                   prefixText: 'Rp ',
                   border: const OutlineInputBorder(),
                   filled: true,
@@ -179,7 +178,7 @@ class _IncomeFormScreenState extends State<IncomeFormScreen> {
                   if (value == null || value.trim().isEmpty) {
                     return 'Nominal tidak boleh kosong.';
                   }
-                  final parsed = double.tryParse(value.trim());
+                  final parsed = CurrencyFormatter.parse(value.trim());
                   if (parsed == null) {
                     return 'Nominal harus berupa angka.';
                   }

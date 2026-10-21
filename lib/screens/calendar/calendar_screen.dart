@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../models/transaction_model.dart';
 import '../../repositories/transaction_repository.dart';
 import '../../widgets/calendar/transaction_calendar.dart';
+import '../income/income_form_screen.dart';
+import '../expense/expense_form_screen.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -83,6 +85,74 @@ class _CalendarScreenState extends State<CalendarScreen> {
     return '${date.year}-$m-$d';
   }
 
+  Future<void> _navigateToAddIncome() async {
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => IncomeFormScreen(initialDate: _selectedDay),
+      ),
+    );
+    if (result == true) {
+      await _loadMonthData(_focusedDay);
+    }
+  }
+
+  Future<void> _navigateToAddExpense() async {
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => ExpenseFormScreen(initialDate: _selectedDay),
+      ),
+    );
+    if (result == true) {
+      await _loadMonthData(_focusedDay);
+    }
+  }
+
+  Widget _buildActionButtons() {
+    return Row(
+      children: [
+        Expanded(
+          child: ElevatedButton.icon(
+            onPressed: _navigateToAddIncome,
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text(
+              'Tambah Pemasukan',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green.shade600,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              elevation: 1,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: ElevatedButton.icon(
+            onPressed: _navigateToAddExpense,
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text(
+              'Tambah Pengeluaran',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade600,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              elevation: 1,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -130,6 +200,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   onPageChanged: _onPageChanged,
                 ),
                 const SizedBox(height: 16),
+                _buildActionButtons(),
+                const SizedBox(height: 8),
                 SelectedDayTransactionList(
                   selectedDay: _selectedDay,
                   transactions: _selectedDayTransactions,

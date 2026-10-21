@@ -12,8 +12,13 @@ import '../../repositories/transaction_repository.dart';
 // sehingga screen pemanggil bisa refresh daftarnya.
 class IncomeFormScreen extends StatefulWidget {
   final TransactionModel? transaction; // null = mode tambah, non-null = mode edit
+  final DateTime? initialDate;
 
-  const IncomeFormScreen({super.key, this.transaction});
+  const IncomeFormScreen({
+    super.key,
+    this.transaction,
+    this.initialDate,
+  });
 
   @override
   State<IncomeFormScreen> createState() => _IncomeFormScreenState();
@@ -43,6 +48,8 @@ class _IncomeFormScreenState extends State<IncomeFormScreen> {
       } catch (_) {
         _selectedDate = null;
       }
+    } else if (widget.initialDate != null) {
+      _selectedDate = widget.initialDate;
     }
   }
 

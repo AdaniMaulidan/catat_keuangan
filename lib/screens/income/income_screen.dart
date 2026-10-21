@@ -154,6 +154,7 @@ class _IncomeScreenState extends State<IncomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
         title: const Text('Pemasukan'),
         backgroundColor: Colors.white,
@@ -212,48 +213,122 @@ class _IncomeScreenState extends State<IncomeScreen> {
       );
     }
 
-    // State: data kosong
-    if (_incomeList.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.inbox_outlined, size: 64, color: Colors.grey.shade400),
-            const SizedBox(height: 16),
-            Text(
-              'Belum ada pemasukan.',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey.shade600,
-              ),
+    final totalIncome = _incomeList.fold<double>(
+      0.0,
+      (sum, item) => sum + item.amount,
+    );
+
+    return Column(
+      children: [
+        // Card Total Pemasukan
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: _TotalIncomeCard(total: totalIncome),
+        ),
+        Expanded(
+          child: _incomeList.isEmpty
+              ? _buildEmptyState()
+              : RefreshIndicator(
+                  onRefresh: _loadIncome,
+                  child: ListView.separated(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    itemCount: _incomeList.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final item = _incomeList[index];
+                      return _IncomeListItem(
+                        transaction: item,
+                        formattedDate: _formatDate(item.date),
+                        onEdit: () => _navigateToEdit(item),
+                        onDelete: () => _confirmDelete(item),
+                      );
+                    },
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.inbox_outlined, size: 64, color: Colors.grey.shade400),
+          const SizedBox(height: 16),
+          Text(
+            'Belum ada pemasukan.',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey.shade600,
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Tekan tombol + untuk menambah pemasukan.',
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.grey.shade500,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Tekan tombol + untuk menambah pemasukan.',
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.grey.shade500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Widget Card Total Pemasukan di bagian atas halaman
+class _TotalIncomeCard extends StatelessWidget {
+  final double total;
+
+  const _TotalIncomeCard({required this.total});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Colors.green.shade600;
+
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      color: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 20,
+              backgroundColor: color.withOpacity(0.15),
+              child: Icon(Icons.arrow_downward_rounded, size: 22, color: color),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Total Pemasukan',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey.shade700,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    CurrencyFormatter.format(total),
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
         ),
-      );
-    }
-
-    // State: data tersedia
-    return ListView.separated(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: _incomeList.length,
-      separatorBuilder: (_, __) => const Divider(height: 1),
-      itemBuilder: (context, index) {
-        final item = _incomeList[index];
-        return _IncomeListItem(
-          transaction: item,
-          formattedDate: _formatDate(item.date),
-          onEdit: () => _navigateToEdit(item),
-          onDelete: () => _confirmDelete(item),
-        );
-      },
+      ),
     );
   }
 }

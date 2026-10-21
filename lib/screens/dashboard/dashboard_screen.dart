@@ -171,6 +171,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     amount: _totalExpense,
                     color: Colors.red.shade600,
                     icon: Icons.arrow_upward_rounded,
+                    onTap: _goToExpense,
                   ),
                 ),
               ],

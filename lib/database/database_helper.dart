@@ -130,6 +130,26 @@ class DatabaseHelper {
     return maps.map((map) => TransactionModel.fromMap(map)).toList();
   }
 
+  // READ — Mengambil transaksi berdasarkan jenis ('income'/'expense') dalam satu bulan tertentu.
+  // Diurutkan dari tanggal terbaru.
+  Future<List<TransactionModel>> getTransactionsByTypeAndMonth(
+    String type,
+    int year,
+    int month,
+  ) async {
+    final db = await database;
+    final monthStr = month.toString().padLeft(2, '0');
+    final prefix = '$year-$monthStr';
+
+    final List<Map<String, dynamic>> maps = await db.query(
+      tableTransactions,
+      where: '$colType = ? AND $colDate LIKE ?',
+      whereArgs: [type, '$prefix%'],
+      orderBy: '$colDate DESC, $colId DESC',
+    );
+    return maps.map((map) => TransactionModel.fromMap(map)).toList();
+  }
+
   // READ — Menghitung total nominal berdasarkan jenis transaksi.
   // Mengembalikan 0.0 jika tidak ada data.
   Future<double> getTotalByType(String type) async {

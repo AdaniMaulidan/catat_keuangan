@@ -62,6 +62,30 @@ class TransactionRepository {
     return _db.getTransactionsByMonth(year, month);
   }
 
+  // Mengambil daftar pengeluaran dalam satu bulan tertentu.
+  Future<List<TransactionModel>> getExpenseTransactionsByMonth(
+    int year,
+    int month,
+  ) {
+    return _db.getTransactionsByTypeAndMonth(
+      TransactionModel.expense,
+      year,
+      month,
+    );
+  }
+
+  // Mengambil daftar pemasukan dalam satu bulan tertentu.
+  Future<List<TransactionModel>> getIncomeTransactionsByMonth(
+    int year,
+    int month,
+  ) {
+    return _db.getTransactionsByTypeAndMonth(
+      TransactionModel.income,
+      year,
+      month,
+    );
+  }
+
   // ---------------------------------------------------------------------------
   // AGREGASI — untuk Dashboard
   // ---------------------------------------------------------------------------

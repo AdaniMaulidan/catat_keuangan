@@ -17,6 +17,9 @@ class ExpenseScreen extends StatefulWidget {
 class _ExpenseScreenState extends State<ExpenseScreen> {
   final _repository = TransactionRepository();
 
+  // State: bulan aktif untuk filter
+  late DateTime _selectedMonth;
+
   // State: data pengeluaran
   List<TransactionModel> _expenseList = [];
   bool _isLoading = true;
@@ -25,10 +28,12 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
   @override
   void initState() {
     super.initState();
+    final now = DateTime.now();
+    _selectedMonth = DateTime(now.year, now.month);
     _loadExpense();
   }
 
-  // Mengambil data pengeluaran dari repository.
+  // Mengambil data pengeluaran dari repository berdasarkan bulan yang dipilih.
   Future<void> _loadExpense() async {
     setState(() {
       _isLoading = true;
@@ -36,7 +41,10 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
     });
 
     try {
-      final data = await _repository.getExpenseTransactions();
+      final data = await _repository.getExpenseTransactionsByMonth(
+        _selectedMonth.year,
+        _selectedMonth.month,
+      );
       if (mounted) {
         setState(() {
           _expenseList = data;
@@ -51,6 +59,22 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
         });
       }
     }
+  }
+
+  // Berpindah ke bulan sebelumnya
+  void _onPreviousMonth() {
+    setState(() {
+      _selectedMonth = DateTime(_selectedMonth.year, _selectedMonth.month - 1);
+    });
+    _loadExpense();
+  }
+
+  // Berpindah ke bulan berikutnya
+  void _onNextMonth() {
+    setState(() {
+      _selectedMonth = DateTime(_selectedMonth.year, _selectedMonth.month + 1);
+    });
+    _loadExpense();
   }
 
   // Navigasi ke form tambah pengeluaran.
@@ -220,9 +244,18 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
 
     return Column(
       children: [
+        // Navigasi Filter Bulan < Bulan Tahun >
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          child: _MonthNavigator(
+            selectedMonth: _selectedMonth,
+            onPreviousMonth: _onPreviousMonth,
+            onNextMonth: _onNextMonth,
+          ),
+        ),
         // Card Total Pengeluaran
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
           child: _TotalExpenseCard(total: totalExpense),
         ),
         Expanded(
@@ -251,6 +284,12 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
   }
 
   Widget _buildEmptyState() {
+    const monthNames = [
+      '', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+    ];
+    final monthLabel = '${monthNames[_selectedMonth.month]} ${_selectedMonth.year}';
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -258,7 +297,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
           Icon(Icons.inbox_outlined, size: 64, color: Colors.grey.shade400),
           const SizedBox(height: 16),
           Text(
-            'Belum ada pengeluaran.',
+            'Belum ada pengeluaran di $monthLabel.',
             style: TextStyle(
               fontSize: 16,
               color: Colors.grey.shade600,
@@ -273,6 +312,68 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// Widget Navigasi Filter Bulan < Bulan Tahun >
+class _MonthNavigator extends StatelessWidget {
+  final DateTime selectedMonth;
+  final VoidCallback onPreviousMonth;
+  final VoidCallback onNextMonth;
+
+  const _MonthNavigator({
+    required this.selectedMonth,
+    required this.onPreviousMonth,
+    required this.onNextMonth,
+  });
+
+  static const _monthNames = [
+    '', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final label = '${_monthNames[selectedMonth.month]} ${selectedMonth.year}';
+
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      color: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            IconButton(
+              icon: Icon(Icons.chevron_left, color: Colors.red.shade700),
+              tooltip: 'Bulan sebelumnya',
+              onPressed: onPreviousMonth,
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.calendar_month, size: 18, color: Colors.red.shade700),
+                const SizedBox(width: 8),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+              ],
+            ),
+            IconButton(
+              icon: Icon(Icons.chevron_right, color: Colors.red.shade700),
+              tooltip: 'Bulan berikutnya',
+              onPressed: onNextMonth,
+            ),
+          ],
+        ),
       ),
     );
   }

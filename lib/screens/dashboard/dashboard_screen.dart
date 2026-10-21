@@ -161,6 +161,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     amount: _totalIncome,
                     color: Colors.green.shade600,
                     icon: Icons.arrow_downward_rounded,
+                    onTap: _goToIncome,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -298,12 +299,14 @@ class _SummaryCard extends StatelessWidget {
   final double amount;
   final Color color;
   final IconData icon;
+  final VoidCallback? onTap;
 
   const _SummaryCard({
     required this.label,
     required this.amount,
     required this.color,
     required this.icon,
+    this.onTap,
   });
 
   @override
@@ -311,7 +314,11 @@ class _SummaryCard extends StatelessWidget {
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -350,8 +357,9 @@ class _SummaryCard extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 // ---------------------------------------------------------------------------

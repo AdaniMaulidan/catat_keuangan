@@ -56,6 +56,15 @@ Meningkatkan kenyamanan pengguna (*user experience*) dalam meninjau ringkasan ke
    - Pada mode edit, nominal lama langsung ditampilkan dengan format titik.
    - Saat disimpan ke database, format titik dibersihkan sehingga tetap tersimpan sebagai nilai numerik/`double` yang valid di SQLite.
 
+10. **Donut / Pie Chart Komposisi Kategori Bulanan** *(Selesai)*
+    - Menambahkan grafik Donut/Pie Chart pada halaman Grafik (`ChartScreen`) untuk melihat rincian komposisi keuangan berdasarkan kategori transaksi.
+    - Kategori diagregasikan secara otomatis dari teks Keterangan (`description`) transaksi. Jika kategori melebihi 5, kategori kecil sisanya digabung otomatis ke kelompok `"Lainnya"`.
+    - Di bagian tengah rongga Donut Chart terdapat teks akumulasi total nominal transaksi pada bulan tersebut.
+    - Di sisi kanan Donut Chart terdapat Legend vertikal yang memuat indikator warna lingkaran, nama kategori, dan persentase kontribusi (format: `XX,XX%`).
+    - Menyediakan kontrol filter perbulan (`‹ Bulan Tahun ›`) yang independen.
+    - Menyediakan tombol pemilih / Toggle Pill untuk beralih antara grafik **Pengeluaran** dan **Pemasukan**.
+    - Memastikan widget disusun secara responsif (`Expanded` / `Flexible`) agar terhindar dari *RenderFlex overflow* dan menyediakan tampilan *empty state* jika belum ada data.
+
 ---
 
 ## 📁 File yang Terlibat & Rencana Perubahan
@@ -69,6 +78,8 @@ Meningkatkan kenyamanan pengguna (*user experience*) dalam meninjau ringkasan ke
 | `lib/screens/expense/expense_form_screen.dart` | Menambahkan parameter `initialDate` dan menerapkan `TextInputFormatter` format titik ribuan otomatis pada input nominal. |
 | `lib/screens/calendar/calendar_screen.dart` | Menambahkan baris tombol aksi ("Tambah Pemasukan" & "Tambah Pengeluaran") dengan pengiriman `_selectedDay`. |
 | `lib/repositories/transaction_repository.dart` & `lib/database/database_helper.dart` | Menyediakan metode query transaksi bulanan per tipe (`getTransactionsByTypeAndMonth`). |
+| `lib/widgets/charts/category_pie_chart.dart` | *(File Baru)* Komponen Donut Chart komposisi kategori, filter perbulan, toggle tipe (Pengeluaran/Pemasukan), dan legend list persentase. |
+| `lib/screens/chart/chart_screen.dart` | Mengintegrasikan widget `CategoryPieChart` di atas grafik garis, mengelola sinkronisasi data bulanan. |
 
 ---
 
@@ -99,6 +110,13 @@ Meningkatkan kenyamanan pengguna (*user experience*) dalam meninjau ringkasan ke
 - Membuat/menerapkan `ThousandsSeparatorInputFormatter` pada `TextFormField` nominal di `ExpenseFormScreen` dan `IncomeFormScreen`.
 - Memastikan pemformatan saat inisialisasi edit mode dan parsing nominal saat penyimpanan transaksi berjalan mulus tanpa error.
 
+### Tahap 9: Donut / Pie Chart Komposisi Kategori (`CategoryPieChart`) (SELESAI)
+- Membuat widget `CategoryPieChart` di `lib/widgets/charts/category_pie_chart.dart` menggunakan `fl_chart.PieChart`.
+- Menyiapkan logika agregasi transaksi berdasarkan `description` per bulan dan tipe (`income`/`expense`), perhitungan persentase, dan pengelompokan item minor ke "Lainnya".
+- Menyusun layout Donut Chart dengan angka total di rongga tengah dan legend persentase di sisi kanan secara responsif.
+- Menambahkan tombol toggle tipe (Pengeluaran / Pemasukan) dan navigasi bulan (`‹ Bulan Tahun ›`).
+- Memasang widget tersebut ke dalam `SingleChildScrollView` pada `lib/screens/chart/chart_screen.dart`.
+
 ---
 
 ## ✅ Skenario Pengujian (Testing & Verifikasi)
@@ -126,3 +144,11 @@ Meningkatkan kenyamanan pengguna (*user experience*) dalam meninjau ringkasan ke
    - [x] Ketik nominal jutaan (misal: `1250000`) $\rightarrow$ Otomatis berubah menjadi `1.250.000`.
    - [x] Mode edit $\rightarrow$ Nilai awal muncul dengan format bertitik.
    - [x] Simpan transaksi $\rightarrow$ Nilai tersimpan dan terhitung dengan benar di database.
+
+5. **Pengujian Donut / Pie Chart Komposisi Kategori:**
+   - [x] Buka tab menu "Grafik" $\rightarrow$ Muncul Donut Chart di atas grafik garis.
+   - [x] Mengubah filter bulan dengan panah `‹` atau `›` $\rightarrow$ Donut Chart dan persentase rincian kategori otomatis berubah sesuai bulan yang aktif.
+   - [x] Mengklik toggle "Pengeluaran" vs "Pemasukan" $\rightarrow$ Grafik beralih menampilkan komposisi sesuai tipe transaksi terpilih.
+   - [x] Angka total di tengah Donut Chart sesuai dengan jumlah nominal seluruh transaksi di bulan tersebut.
+   - [x] Persentase di legend sisi kanan terhitung dengan akurat (total akumulasi 100%).
+   - [x] Ketika tidak ada transaksi pada bulan yang dipilih $\rightarrow$ Tampil *empty state* yang rapi tanpa error render.

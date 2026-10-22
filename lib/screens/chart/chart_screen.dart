@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../models/transaction_model.dart';
 import '../../repositories/transaction_repository.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/charts/category_pie_chart.dart';
 import '../../widgets/charts/income_chart.dart';
 import '../../widgets/charts/expense_chart.dart';
 
@@ -13,6 +15,12 @@ class ChartScreen extends StatefulWidget {
 
 class _ChartScreenState extends State<ChartScreen> {
   final _repository = TransactionRepository();
+
+  // --- State grafik komposisi kategori ---
+  late DateTime _pieChartMonth;
+  List<TransactionModel> _pieChartTransactions = [];
+  bool _isPieChartLoading = false;
+  String? _pieChartError;
 
   // --- State grafik pemasukan ---
   late DateTime _chartMonth;
@@ -30,6 +38,7 @@ class _ChartScreenState extends State<ChartScreen> {
   void initState() {
     super.initState();
     final now = DateTime.now();
+    _pieChartMonth = DateTime(now.year, now.month);
     _chartMonth = DateTime(now.year, now.month);
     _expenseChartMonth = DateTime(now.year, now.month);
     _loadAll();
@@ -37,9 +46,38 @@ class _ChartScreenState extends State<ChartScreen> {
 
   Future<void> _loadAll() async {
     await Future.wait([
+      _loadPieChartMonthData(_pieChartMonth),
       _loadChartMonthData(_chartMonth),
       _loadExpenseChartMonthData(_expenseChartMonth),
     ]);
+  }
+
+  Future<void> _loadPieChartMonthData(DateTime month) async {
+    setState(() {
+      _isPieChartLoading = true;
+      _pieChartError = null;
+    });
+
+    try {
+      final transactions = await _repository.getTransactionsByMonth(
+        month.year,
+        month.month,
+      );
+      if (mounted) {
+        setState(() {
+          _pieChartTransactions = transactions;
+          _isPieChartLoading = false;
+          _pieChartError = null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _pieChartError = 'Gagal memuat komposisi kategori.';
+          _isPieChartLoading = false;
+        });
+      }
+    }
   }
 
   Future<void> _loadChartMonthData(DateTime month) async {
@@ -96,6 +134,18 @@ class _ChartScreenState extends State<ChartScreen> {
         });
       }
     }
+  }
+
+  void _onPieChartPreviousMonth() {
+    final prev = DateTime(_pieChartMonth.year, _pieChartMonth.month - 1);
+    setState(() => _pieChartMonth = prev);
+    _loadPieChartMonthData(prev);
+  }
+
+  void _onPieChartNextMonth() {
+    final next = DateTime(_pieChartMonth.year, _pieChartMonth.month + 1);
+    setState(() => _pieChartMonth = next);
+    _loadPieChartMonthData(next);
   }
 
   void _onChartPreviousMonth() {
@@ -181,6 +231,18 @@ class _ChartScreenState extends State<ChartScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              _sectionHeader('KOMPOSISI KATEGORI'),
+              const SizedBox(height: 12),
+              CategoryPieChart(
+                transactions: _pieChartTransactions,
+                year: _pieChartMonth.year,
+                month: _pieChartMonth.month,
+                onPreviousMonth: _onPieChartPreviousMonth,
+                onNextMonth: _onPieChartNextMonth,
+                isLoading: _isPieChartLoading,
+                errorMessage: _pieChartError,
+              ),
+              const SizedBox(height: 24),
               _sectionHeader('GRAFIK PEMASUKAN'),
               const SizedBox(height: 12),
               IncomeChart(

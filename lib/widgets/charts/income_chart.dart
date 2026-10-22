@@ -1,23 +1,11 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import '../../models/transaction_model.dart';
+import '../../theme/app_theme.dart';
 import '../../utils/currency_formatter.dart';
 
-// Widget grafik pemasukan bulanan.
-//
-// Menampilkan line chart pemasukan per tanggal dalam satu bulan.
-// Data di-supply dari luar (dari DashboardScreen) — widget ini tidak query DB.
-//
-// Menerima:
-//   - [incomeByDate]: total pemasukan per tanggal, key: nomor tanggal (1-31).
-//   - [year]: tahun bulan yang ditampilkan.
-//   - [month]: bulan yang ditampilkan (1-12).
-//   - [onPreviousMonth]: callback tombol bulan sebelumnya.
-//   - [onNextMonth]: callback tombol bulan berikutnya.
-//   - [isLoading]: menampilkan loading indicator.
-//   - [errorMessage]: menampilkan pesan error jika ada.
 class IncomeChart extends StatefulWidget {
-  final Map<int, double> incomeByDate; // key: tanggal (1-31), value: total
+  final Map<int, double> incomeByDate;
   final int year;
   final int month;
   final VoidCallback onPreviousMonth;
@@ -41,19 +29,15 @@ class IncomeChart extends StatefulWidget {
 }
 
 class _IncomeChartState extends State<IncomeChart> {
-  // Nama bulan dalam bahasa Indonesia.
   static const _monthNames = [
     '', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
     'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
   ];
 
-  // Jumlah hari dalam bulan tertentu.
   int _daysInMonth(int year, int month) {
     return DateTime(year, month + 1, 0).day;
   }
 
-  // Memformat nominal besar menjadi singkatan ringkas untuk label sumbu Y.
-  // Contoh: 5000000 → '5 jt', 500000 → '500 rb', 25000 → '25 rb'
   String _formatAxisLabel(double value) {
     if (value == 0) return '0';
     if (value >= 1000000) {
@@ -69,74 +53,94 @@ class _IncomeChartState extends State<IncomeChart> {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // --- Header: navigasi bulan ---
-            _buildMonthHeader(),
-            const SizedBox(height: 16),
-
-            // --- Konten grafik ---
-            _buildChartContent(),
-          ],
-        ),
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceCard,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppTheme.slate100, width: 1),
+        boxShadow: AppTheme.softShadow,
+      ),
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildMonthHeader(),
+          const SizedBox(height: 18),
+          _buildChartContent(),
+        ],
       ),
     );
   }
 
   Widget _buildMonthHeader() {
-    final monthLabel =
-        '${_monthNames[widget.month]} ${widget.year}';
+    final monthLabel = '${_monthNames[widget.month]} ${widget.year}';
 
     return Row(
       children: [
-        // Ikon pemasukan
-        CircleAvatar(
-          radius: 14,
-          backgroundColor: Colors.green.shade100,
-          child: Icon(Icons.trending_up,
-              size: 16, color: Colors.green.shade700),
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: AppTheme.emerald50,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: const Icon(
+            Icons.trending_up_rounded,
+            size: 20,
+            color: AppTheme.emerald600,
+          ),
         ),
-        const SizedBox(width: 8),
-        Expanded(
+        const SizedBox(width: 10),
+        const Expanded(
           child: Text(
             'Pemasukan',
             style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey.shade800,
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.slate800,
             ),
           ),
         ),
-        // Tombol bulan sebelumnya
-        IconButton(
-          icon: Icon(Icons.chevron_left, color: Colors.green.shade700),
-          onPressed: widget.onPreviousMonth,
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-          tooltip: 'Bulan sebelumnya',
-        ),
-        // Label bulan
-        Text(
-          monthLabel,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: Colors.grey.shade700,
+        // Month Pill Navigator
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          decoration: BoxDecoration(
+            color: AppTheme.slate50,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppTheme.slate200, width: 0.8),
           ),
-        ),
-        // Tombol bulan berikutnya
-        IconButton(
-          icon: Icon(Icons.chevron_right, color: Colors.green.shade700),
-          onPressed: widget.onNextMonth,
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-          tooltip: 'Bulan berikutnya',
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chevron_left_rounded, size: 18),
+                color: AppTheme.slate500,
+                onPressed: widget.onPreviousMonth,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                tooltip: 'Bulan sebelumnya',
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Text(
+                  monthLabel,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.slate700,
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.chevron_right_rounded, size: 18),
+                color: AppTheme.slate500,
+                onPressed: widget.onNextMonth,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                tooltip: 'Bulan berikutnya',
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -146,7 +150,9 @@ class _IncomeChartState extends State<IncomeChart> {
     if (widget.isLoading) {
       return const SizedBox(
         height: 160,
-        child: Center(child: CircularProgressIndicator()),
+        child: Center(
+          child: CircularProgressIndicator(color: AppTheme.emerald600, strokeWidth: 2.5),
+        ),
       );
     }
 
@@ -156,28 +162,39 @@ class _IncomeChartState extends State<IncomeChart> {
         child: Center(
           child: Text(
             widget.errorMessage!,
-            style: TextStyle(color: Colors.red.shade700, fontSize: 13),
+            style: const TextStyle(color: AppTheme.rose600, fontSize: 13),
             textAlign: TextAlign.center,
           ),
         ),
       );
     }
 
-    // Cek apakah ada data pemasukan di bulan ini.
     final hasData = widget.incomeByDate.values.any((v) => v > 0);
     if (!hasData) {
-      return SizedBox(
-        height: 100,
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24),
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.bar_chart, size: 36, color: Colors.grey.shade300),
-              const SizedBox(height: 8),
-              Text(
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: AppTheme.slate50,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppTheme.slate200, width: 1),
+                ),
+                child: const Icon(
+                  Icons.bar_chart_rounded,
+                  size: 28,
+                  color: AppTheme.slate400,
+                ),
+              ),
+              const SizedBox(height: 10),
+              const Text(
                 'Belum ada pemasukan pada bulan ini.',
-                style:
-                    TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                style: TextStyle(color: AppTheme.slate500, fontSize: 13),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -192,10 +209,8 @@ class _IncomeChartState extends State<IncomeChart> {
   Widget _buildLineChart() {
     final days = _daysInMonth(widget.year, widget.month);
     final maxY = widget.incomeByDate.values.fold(0.0, (a, b) => a > b ? a : b);
-    // Beri ruang 20% di atas maksimum agar titik tidak terpotong.
-    final chartMaxY = maxY * 1.2;
+    final chartMaxY = (maxY * 1.25) > 0 ? (maxY * 1.25) : 100000.0;
 
-    // Bangun spots: satu titik per hari dalam bulan.
     final spots = List.generate(days, (i) {
       final day = i + 1;
       final amount = widget.incomeByDate[day] ?? 0.0;
@@ -206,73 +221,59 @@ class _IncomeChartState extends State<IncomeChart> {
       height: 200,
       child: LineChart(
         LineChartData(
-          // --- Sentuhan/tooltip ---
           lineTouchData: LineTouchData(
             touchTooltipData: LineTouchTooltipData(
-              getTooltipColor: (_) => Colors.green.shade800,
+              getTooltipColor: (_) => AppTheme.slate900,
+              tooltipRoundedRadius: 10,
               getTooltipItems: (touchedSpots) {
                 return touchedSpots.map((spot) {
                   final day = spot.x.toInt();
                   final amount = spot.y;
                   return LineTooltipItem(
-                    '$day ${_monthNames[widget.month]}\n'
-                    '${CurrencyFormatter.format(amount)}',
+                    '$day ${_monthNames[widget.month]}\n',
                     const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
+                      color: AppTheme.slate400,
+                      fontSize: 11,
                       fontWeight: FontWeight.w500,
                     ),
+                    children: [
+                      TextSpan(
+                        text: CurrencyFormatter.format(amount),
+                        style: const TextStyle(
+                          color: AppTheme.emerald400,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
                   );
                 }).toList();
               },
             ),
-            handleBuiltInTouches: true,
           ),
-
-          // --- Rentang sumbu ---
-          minX: 1,
-          maxX: days.toDouble(),
-          minY: 0,
-          maxY: chartMaxY == 0 ? 1 : chartMaxY,
-
-          // --- Grid ---
           gridData: FlGridData(
             show: true,
             drawVerticalLine: false,
-            horizontalInterval: chartMaxY / 4,
-            getDrawingHorizontalLine: (_) => FlLine(
-              color: Colors.grey.shade200,
+            horizontalInterval: chartMaxY / 4 > 0 ? chartMaxY / 4 : 25000,
+            getDrawingHorizontalLine: (value) => const FlLine(
+              color: AppTheme.slate100,
               strokeWidth: 1,
             ),
           ),
-
-          // --- Border ---
-          borderData: FlBorderData(
-            show: true,
-            border: Border(
-              bottom: BorderSide(color: Colors.grey.shade300),
-              left: BorderSide(color: Colors.grey.shade300),
-            ),
-          ),
-
-          // --- Sumbu X ---
           titlesData: FlTitlesData(
             leftTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
-                reservedSize: 52,
-                interval: chartMaxY / 4,
+                reservedSize: 46,
                 getTitlesWidget: (value, meta) {
-                  if (value == 0 || value == meta.max) {
-                    return const SizedBox.shrink();
-                  }
                   return Padding(
-                    padding: const EdgeInsets.only(right: 4),
+                    padding: const EdgeInsets.only(right: 6),
                     child: Text(
                       _formatAxisLabel(value),
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 10,
-                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.slate400,
                       ),
                       textAlign: TextAlign.right,
                     ),
@@ -283,20 +284,17 @@ class _IncomeChartState extends State<IncomeChart> {
             bottomTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
-                reservedSize: 24,
-                // Tampilkan label tiap 5 hari: 1, 5, 10, 15, 20, 25, 30
+                reservedSize: 22,
                 interval: 5,
                 getTitlesWidget: (value, meta) {
                   final day = value.toInt();
                   if (day == 1 || day % 5 == 0) {
-                    return Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(
-                        '$day',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: Colors.grey.shade600,
-                        ),
+                    return Text(
+                      '$day',
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.slate400,
                       ),
                     );
                   }
@@ -304,42 +302,42 @@ class _IncomeChartState extends State<IncomeChart> {
                 },
               ),
             ),
-            topTitles: const AxisTitles(
-              sideTitles: SideTitles(showTitles: false),
-            ),
-            rightTitles: const AxisTitles(
-              sideTitles: SideTitles(showTitles: false),
-            ),
+            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           ),
-
-          // --- Data garis ---
+          borderData: FlBorderData(show: false),
+          minX: 1,
+          maxX: days.toDouble(),
+          minY: 0,
+          maxY: chartMaxY,
           lineBarsData: [
             LineChartBarData(
               spots: spots,
               isCurved: true,
-              curveSmoothness: 0.3,
-              color: Colors.green.shade600,
+              curveSmoothness: 0.25,
+              color: AppTheme.emerald600,
               barWidth: 2.5,
               isStrokeCapRound: true,
               dotData: FlDotData(
                 show: true,
-                checkToShowDot: (spot, barData) => spot.y > 0,
                 getDotPainter: (spot, percent, barData, index) {
-                  return FlDotCirclePainter(
-                    radius: 4,
-                    color: Colors.green.shade600,
-                    strokeWidth: 1.5,
-                    strokeColor: Colors.white,
-                  );
+                  if (spot.y > 0) {
+                    return FlDotCirclePainter(
+                      radius: 3.5,
+                      color: AppTheme.emerald600,
+                      strokeWidth: 1.5,
+                      strokeColor: Colors.white,
+                    );
+                  }
+                  return FlDotCirclePainter(radius: 0);
                 },
               ),
-              // Area di bawah garis — gradien hijau transparan
               belowBarData: BarAreaData(
                 show: true,
                 gradient: LinearGradient(
                   colors: [
-                    Colors.green.shade400.withOpacity(0.3),
-                    Colors.green.shade100.withOpacity(0.05),
+                    AppTheme.emerald500.withOpacity(0.2),
+                    AppTheme.emerald500.withOpacity(0.0),
                   ],
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
@@ -353,29 +351,17 @@ class _IncomeChartState extends State<IncomeChart> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Helper: konversi List<TransactionModel> bulan ke Map<int, double>
-// (tanggal → total income).
-// Digunakan oleh DashboardScreen untuk menyiapkan data sebelum dikirim
-// ke IncomeChart.
-// ---------------------------------------------------------------------------
 class IncomeChartHelper {
   IncomeChartHelper._();
 
-  /// Mengambil transaksi bulan dan mengelompokkan total income per tanggal.
-  /// Hanya menghitung transaksi dengan [type == TransactionModel.income].
-  /// Mengembalikan Map<int, double> dimana key = hari (1-31).
-  static Map<int, double> buildIncomeByDate(
-      List<TransactionModel> monthTransactions) {
+  static Map<int, double> buildIncomeByDate(List<TransactionModel> transactions) {
     final map = <int, double>{};
-    for (final t in monthTransactions) {
+    for (final t in transactions) {
       if (!t.isIncome) continue;
-      // Ambil nomor hari dari string 'YYYY-MM-DD'.
-      final parts = t.date.split('-');
-      if (parts.length != 3) continue;
-      final day = int.tryParse(parts[2]);
-      if (day == null) continue;
-      map[day] = (map[day] ?? 0) + t.amount;
+      try {
+        final dt = DateTime.parse(t.date);
+        map[dt.day] = (map[dt.day] ?? 0.0) + t.amount;
+      } catch (_) {}
     }
     return map;
   }

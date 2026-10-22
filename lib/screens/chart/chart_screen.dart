@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../repositories/transaction_repository.dart';
+import '../../theme/app_theme.dart';
 import '../../widgets/charts/income_chart.dart';
 import '../../widgets/charts/expense_chart.dart';
 
@@ -124,19 +125,20 @@ class _ChartScreenState extends State<ChartScreen> {
   Widget _sectionHeader(String title) {
     return Row(
       children: [
-        const Expanded(child: Divider()),
+        const Expanded(child: Divider(color: AppTheme.slate200, thickness: 1)),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Text(
             title,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey.shade600,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.slate400,
+              letterSpacing: 1.2,
             ),
           ),
         ),
-        const Expanded(child: Divider()),
+        const Expanded(child: Divider(color: AppTheme.slate200, thickness: 1)),
       ],
     );
   }
@@ -144,26 +146,43 @@ class _ChartScreenState extends State<ChartScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
+      backgroundColor: AppTheme.canvasBackground,
       appBar: AppBar(
         title: const Text('Grafik'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
-        shape: const Border(
-          bottom: BorderSide(color: Colors.black, width: 1),
-        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppTheme.emerald50,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: AppTheme.emerald200.withOpacity(0.5), width: 1),
+              ),
+              child: const Text(
+                'Bulanan',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.emerald700,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
       body: RefreshIndicator(
+        color: AppTheme.emerald600,
+        backgroundColor: Colors.white,
         onRefresh: _loadAll,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _sectionHeader('Grafik Pemasukan'),
-              const SizedBox(height: 8),
+              _sectionHeader('GRAFIK PEMASUKAN'),
+              const SizedBox(height: 12),
               IncomeChart(
                 incomeByDate: _incomeByDate,
                 year: _chartMonth.year,
@@ -173,9 +192,9 @@ class _ChartScreenState extends State<ChartScreen> {
                 isLoading: _isChartLoading,
                 errorMessage: _chartError,
               ),
-              const SizedBox(height: 20),
-              _sectionHeader('Grafik Pengeluaran'),
-              const SizedBox(height: 8),
+              const SizedBox(height: 24),
+              _sectionHeader('GRAFIK PENGELUARAN'),
+              const SizedBox(height: 12),
               ExpenseChart(
                 expenseByDate: _expenseByDate,
                 year: _expenseChartMonth.year,

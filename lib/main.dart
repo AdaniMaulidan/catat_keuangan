@@ -5,6 +5,7 @@ import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'screens/main/main_navigation_screen.dart';
+import 'theme/app_theme.dart';
 
 void main() async {
   // Diperlukan sebelum menggunakan plugin native (sqflite) di main().
@@ -35,10 +36,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'AyoHemat',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
-        useMaterial3: true,
-      ),
+      theme: AppTheme.theme,
       home: const MainNavigationScreen(),
     );
   }

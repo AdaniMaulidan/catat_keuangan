@@ -1,17 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../models/transaction_model.dart';
 import '../../repositories/transaction_repository.dart';
+import '../../theme/app_theme.dart';
 import '../../utils/currency_formatter.dart';
 
-// Form untuk menambah atau mengedit pengeluaran.
-//
-// Mode tambah: panggil tanpa parameter `transaction`.
-// Mode edit  : panggil dengan `transaction` berisi data yang ingin diedit.
-//
-// Setelah simpan berhasil, screen ini akan di-pop dengan nilai `true`
-// sehingga screen pemanggil bisa refresh daftarnya.
 class ExpenseFormScreen extends StatefulWidget {
-  final TransactionModel? transaction; // null = mode tambah, non-null = mode edit
+  final TransactionModel? transaction; // null = tambah, non-null = edit
   final DateTime? initialDate;
 
   const ExpenseFormScreen({
@@ -50,6 +44,8 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
       }
     } else if (widget.initialDate != null) {
       _selectedDate = widget.initialDate;
+    } else {
+      _selectedDate = DateTime.now();
     }
   }
 
@@ -73,6 +69,18 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
       initialDate: _selectedDate ?? now,
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: AppTheme.rose600,
+              onPrimary: Colors.white,
+              onSurface: AppTheme.slate800,
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
     if (picked != null) {
       setState(() {
@@ -133,7 +141,7 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Colors.red.shade700,
+        backgroundColor: AppTheme.rose600,
       ),
     );
   }
@@ -143,36 +151,55 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
     final title = _isEditMode ? 'Edit Pengeluaran' : 'Tambah Pengeluaran';
 
     return Scaffold(
+      backgroundColor: AppTheme.canvasBackground,
       appBar: AppBar(
-        title: Text(title),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
-        shape: const Border(
-          bottom: BorderSide(color: Colors.black, width: 1),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded, size: 22),
+          onPressed: () => Navigator.of(context).pop(),
+          tooltip: 'Kembali',
         ),
+        title: Text(title),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
         child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // --- Field Nominal ---
+              // --- Field 1: Nominal ---
+              const Text(
+                'NOMINAL',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.slate500,
+                  letterSpacing: 0.8,
+                ),
+              ),
+              const SizedBox(height: 8),
               TextFormField(
                 controller: _amountController,
                 keyboardType: TextInputType.number,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.slate800,
+                ),
                 inputFormatters: [
                   ThousandsSeparatorInputFormatter(),
                 ],
-                decoration: InputDecoration(
-                  labelText: 'Nominal',
-                  hintText: 'Contoh: 25.000',
-                  prefixText: 'Rp ',
-                  border: const OutlineInputBorder(),
+                decoration: const InputDecoration(
+                  hintText: '0',
+                  prefixText: 'Rp  ',
+                  prefixStyle: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.slate400,
+                  ),
                   filled: true,
-                  fillColor: Colors.grey.shade50,
+                  fillColor: AppTheme.surfaceCard,
+                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 15),
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
@@ -188,20 +215,30 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
                   return null;
                 },
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
 
-              // --- Field Deskripsi ---
+              // --- Field 2: Deskripsi ---
+              const Text(
+                'DESKRIPSI',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.slate500,
+                  letterSpacing: 0.8,
+                ),
+              ),
+              const SizedBox(height: 8),
               TextFormField(
                 controller: _descriptionController,
                 keyboardType: TextInputType.text,
                 textCapitalization: TextCapitalization.sentences,
-                maxLines: 2,
-                decoration: InputDecoration(
-                  labelText: 'Deskripsi',
-                  hintText: 'Contoh: Makan siang',
-                  border: const OutlineInputBorder(),
+                maxLines: 3,
+                style: const TextStyle(fontSize: 14, color: AppTheme.slate800),
+                decoration: const InputDecoration(
+                  hintText: 'Deskripsi pengeluaran...',
                   filled: true,
-                  fillColor: Colors.grey.shade50,
+                  fillColor: AppTheme.surfaceCard,
+                  contentPadding: EdgeInsets.all(16),
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
@@ -210,57 +247,89 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
                   return null;
                 },
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
 
-              // --- Info Tanggal ---
+              // --- Field 3: Tanggal ---
+              const Text(
+                'TANGGAL',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.slate500,
+                  letterSpacing: 0.8,
+                ),
+              ),
+              const SizedBox(height: 8),
               InkWell(
                 onTap: _pickDate,
+                borderRadius: BorderRadius.circular(16),
                 child: Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    border: Border.all(color: Colors.grey.shade400),
-                    borderRadius: BorderRadius.circular(4),
+                    color: AppTheme.surfaceCard,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppTheme.slate200, width: 1),
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.calendar_today,
-                          size: 18, color: Colors.grey.shade600),
-                      const SizedBox(width: 8),
-                      Text(
-                        _selectedDate != null
-                            ? 'Tanggal: ${_formatDate(_selectedDate!)}'
-                            : 'Pilih tanggal',
-                        style: TextStyle(color: Colors.grey.shade700),
+                      const Icon(
+                        Icons.calendar_month_outlined,
+                        size: 20,
+                        color: AppTheme.slate500,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          _selectedDate != null
+                              ? _formatDate(_selectedDate!)
+                              : 'Pilih tanggal',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.slate800,
+                          ),
+                        ),
                       ),
                     ],
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 32),
 
-              // --- Tombol Simpan ---
-              ElevatedButton(
-                onPressed: _isSaving ? null : _save,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red.shade600,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  textStyle: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+              // --- Submit Button ---
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: AppTheme.floatingShadowRose,
                 ),
-                child: _isSaving
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
+                child: ElevatedButton(
+                  onPressed: _isSaving ? null : _save,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.rose600,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: _isSaving
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : Text(
+                          _isEditMode ? 'Simpan Perubahan' : 'Simpan',
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                      )
-                    : Text(_isEditMode ? 'Simpan Perubahan' : 'Simpan'),
+                ),
               ),
             ],
           ),

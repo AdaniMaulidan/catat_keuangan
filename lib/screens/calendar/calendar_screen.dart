@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/transaction_model.dart';
 import '../../repositories/transaction_repository.dart';
+import '../../theme/app_theme.dart';
 import '../../widgets/calendar/transaction_calendar.dart';
 import '../income/income_form_screen.dart';
 import '../expense/expense_form_screen.dart';
@@ -113,39 +114,43 @@ class _CalendarScreenState extends State<CalendarScreen> {
         Expanded(
           child: ElevatedButton.icon(
             onPressed: _navigateToAddIncome,
-            icon: const Icon(Icons.add, size: 18),
+            icon: const Icon(Icons.add_rounded, size: 18),
             label: const Text(
               'Tambah Pemasukan',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green.shade600,
+              backgroundColor: AppTheme.emerald600,
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
               ),
-              elevation: 1,
+              elevation: 0,
             ),
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 10),
         Expanded(
           child: ElevatedButton.icon(
             onPressed: _navigateToAddExpense,
-            icon: const Icon(Icons.add, size: 18),
+            icon: const Icon(Icons.add_rounded, size: 18),
             label: const Text(
               'Tambah Pengeluaran',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade600,
+              backgroundColor: AppTheme.rose600,
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
               ),
-              elevation: 1,
+              elevation: 0,
             ),
           ),
         ),
@@ -156,39 +161,56 @@ class _CalendarScreenState extends State<CalendarScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
+      backgroundColor: AppTheme.canvasBackground,
       appBar: AppBar(
         title: const Text('Kalender'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
-        shape: const Border(
-          bottom: BorderSide(color: Colors.black, width: 1),
-        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppTheme.emerald50,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: AppTheme.emerald200.withOpacity(0.6), width: 1),
+              ),
+              child: const Text(
+                'AyoHemat',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.emerald700,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
       body: RefreshIndicator(
+        color: AppTheme.emerald600,
+        backgroundColor: Colors.white,
         onRefresh: () async {
           await _loadMonthData(_focusedDay);
         },
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (_isCalendarLoading)
                 const Center(
                   child: Padding(
-                    padding: EdgeInsets.symmetric(vertical: 24),
-                    child: CircularProgressIndicator(),
+                    padding: EdgeInsets.symmetric(vertical: 32),
+                    child: CircularProgressIndicator(color: AppTheme.emerald600, strokeWidth: 2.5),
                   ),
                 )
               else if (_calendarError != null)
                 Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
                   child: Text(
                     _calendarError!,
-                    style: TextStyle(color: Colors.red.shade700),
+                    style: const TextStyle(color: AppTheme.rose600),
                   ),
                 )
               else ...[
@@ -201,7 +223,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 ),
                 const SizedBox(height: 16),
                 _buildActionButtons(),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 SelectedDayTransactionList(
                   selectedDay: _selectedDay,
                   transactions: _selectedDayTransactions,

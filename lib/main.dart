@@ -34,7 +34,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'AyoHemat',
+      title: 'AyoHematbyAdani',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.theme,
       home: const MainNavigationScreen(),

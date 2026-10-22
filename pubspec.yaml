@@ -58,7 +58,7 @@ dev_dependencies:
 
 flutter_launcher_icons:
   android: "launcher_icon"
-  image_path: "assets/images/AyoHemat.jpg"
+  image_path: "assets/images/AyoHemat_byAdani.jpg"
   min_sdk_size: 21
 
 # For information on the generic Dart part of this file, see the

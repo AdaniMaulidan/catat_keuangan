@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../repositories/transaction_repository.dart';
+import '../../repositories/bill_repository.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/currency_formatter.dart';
 import '../income/income_screen.dart';
 import '../expense/expense_screen.dart';
+import '../bill/bill_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -16,11 +18,13 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   static const String _prefKeyHideBalance = 'is_balance_hidden';
   final _repository = TransactionRepository();
+  final _billRepository = BillRepository();
 
   // --- State keuangan ---
   double _balance = 0;
   double _totalIncome = 0;
   double _totalExpense = 0;
+  int _unpaidBillsCount = 0;
   bool _isLoading = true;
   String? _errorMessage;
   bool _isBalanceHidden = false;
@@ -70,12 +74,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _repository.getTotalIncome(),
         _repository.getTotalExpense(),
         _repository.getBalance(),
+        _billRepository.getUnpaidBillsCount(),
       ]);
       if (mounted) {
         setState(() {
-          _totalIncome = results[0];
-          _totalExpense = results[1];
-          _balance = results[2];
+          _totalIncome = results[0] as double;
+          _totalExpense = results[1] as double;
+          _balance = results[2] as double;
+          _unpaidBillsCount = results[3] as int;
           _isLoading = false;
         });
       }
@@ -99,6 +105,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _goToExpense() async {
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const ExpenseScreen()),
+    );
+    await _loadAll();
+  }
+
+  Future<void> _goToBills() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const BillScreen()),
     );
     await _loadAll();
   }
@@ -312,7 +325,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
               title: 'Pemasukan',
               subtitle: 'Tambah & kelola pemasukan',
               icon: Icons.arrow_downward_rounded,
-              isIncome: true,
+              iconBg: AppTheme.emerald50,
+              iconColor: AppTheme.emerald600,
               onTap: _goToIncome,
             ),
             const SizedBox(height: 12),
@@ -321,8 +335,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
               title: 'Pengeluaran',
               subtitle: 'Tambah & kelola pengeluaran',
               icon: Icons.arrow_upward_rounded,
-              isIncome: false,
+              iconBg: AppTheme.rose50,
+              iconColor: AppTheme.rose500,
               onTap: _goToExpense,
+            ),
+            const SizedBox(height: 12),
+
+            _MenuActionCard(
+              title: 'Tagihan',
+              subtitle: 'Kelola & bayar tagihan jatuh tempo',
+              icon: Icons.receipt_long_rounded,
+              iconBg: const Color(0xFFEEF2FF),
+              iconColor: const Color(0xFF4F46E5),
+              badgeText: _unpaidBillsCount > 0
+                  ? '$_unpaidBillsCount belum bayar'
+                  : 'Semua lunas',
+              badgeColor: _unpaidBillsCount > 0
+                  ? const Color(0xFFFEF3C7)
+                  : AppTheme.emerald100,
+              badgeTextColor: _unpaidBillsCount > 0
+                  ? const Color(0xFF92400E)
+                  : AppTheme.emerald800,
+              onTap: _goToBills,
             ),
             const SizedBox(height: 32),
           ],
@@ -666,21 +700,29 @@ class _MenuActionCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final IconData icon;
-  final bool isIncome;
+  final Color? iconBg;
+  final Color? iconColor;
+  final String? badgeText;
+  final Color? badgeColor;
+  final Color? badgeTextColor;
   final VoidCallback onTap;
 
   const _MenuActionCard({
     required this.title,
     required this.subtitle,
     required this.icon,
-    required this.isIncome,
+    this.iconBg,
+    this.iconColor,
+    this.badgeText,
+    this.badgeColor,
+    this.badgeTextColor,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final iconBg = isIncome ? AppTheme.emerald50 : AppTheme.rose50;
-    final iconColor = isIncome ? AppTheme.emerald600 : AppTheme.rose500;
+    final bg = iconBg ?? AppTheme.emerald50;
+    final color = iconColor ?? AppTheme.emerald600;
 
     return Container(
       decoration: BoxDecoration(
@@ -694,7 +736,7 @@ class _MenuActionCard extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(16),
-          splashColor: isIncome ? AppTheme.emerald50 : AppTheme.rose50,
+          splashColor: bg.withOpacity(0.5),
           highlightColor: Colors.transparent,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -705,30 +747,53 @@ class _MenuActionCard extends StatelessWidget {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: iconBg,
+                    color: bg,
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Icon(
                     icon,
                     size: 24,
-                    color: iconColor,
+                    color: color,
                   ),
                 ),
                 const SizedBox(width: 14),
 
-                // Title & Subtitle
+                // Title & Subtitle with Badge
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.slate800,
-                          letterSpacing: -0.2,
-                        ),
+                      Row(
+                        children: [
+                          Text(
+                            title,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.slate800,
+                              letterSpacing: -0.2,
+                            ),
+                          ),
+                          if (badgeText != null) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 7, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: badgeColor ?? AppTheme.slate100,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                badgeText!,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: badgeTextColor ?? AppTheme.slate600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                       const SizedBox(height: 2),
                       Text(

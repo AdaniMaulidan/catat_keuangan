@@ -1,6 +1,7 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/transaction_model.dart';
+import '../models/bill_model.dart';
 
 // DatabaseHelper menggunakan pola Singleton agar seluruh aplikasi
 // berbagi satu instance koneksi database yang sama.
@@ -18,15 +19,24 @@ class DatabaseHelper {
 
   // Nama file dan versi database.
   static const String _dbName = 'catat_keuangan_v2.db';
-  static const int _dbVersion = 1;
+  static const int _dbVersion = 2;
 
-  // Nama tabel dan kolom — dijadikan konstanta untuk menghindari typo.
+  // Nama tabel dan kolom Transaksi — dijadikan konstanta untuk menghindari typo.
   static const String tableTransactions = 'transactions';
   static const String colId = 'id';
   static const String colType = 'type';
   static const String colAmount = 'amount';
   static const String colDescription = 'description';
   static const String colDate = 'date';
+
+  // Nama tabel dan kolom Tagihan (Bills)
+  static const String tableBills = 'bills';
+  static const String colBillId = 'id';
+  static const String colBillAmount = 'amount';
+  static const String colBillDescription = 'description';
+  static const String colBillDueDate = 'due_date';
+  static const String colBillIsPaid = 'is_paid';
+  static const String colBillPaidDate = 'paid_date';
 
   // Mendapatkan instance database. Jika belum ada, inisialisasi terlebih dahulu.
   Future<Database> get database async {
@@ -44,6 +54,7 @@ class DatabaseHelper {
       path,
       version: _dbVersion,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
   }
 
@@ -58,6 +69,33 @@ class DatabaseHelper {
         $colDate        TEXT    NOT NULL
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE $tableBills (
+        $colBillId          INTEGER PRIMARY KEY AUTOINCREMENT,
+        $colBillAmount      REAL    NOT NULL CHECK($colBillAmount > 0),
+        $colBillDescription TEXT    NOT NULL,
+        $colBillDueDate     TEXT    NOT NULL,
+        $colBillIsPaid      INTEGER NOT NULL DEFAULT 0,
+        $colBillPaidDate    TEXT
+      )
+    ''');
+  }
+
+  // Migrasi skema saat database di-upgrade
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS $tableBills (
+          $colBillId          INTEGER PRIMARY KEY AUTOINCREMENT,
+          $colBillAmount      REAL    NOT NULL CHECK($colBillAmount > 0),
+          $colBillDescription TEXT    NOT NULL,
+          $colBillDueDate     TEXT    NOT NULL,
+          $colBillIsPaid      INTEGER NOT NULL DEFAULT 0,
+          $colBillPaidDate    TEXT
+        )
+      ''');
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -196,6 +234,117 @@ class DatabaseHelper {
       where: '$colId = ?',
       whereArgs: [id],
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // TAGIHAN (BILLS) — CRUD & OPERASI PEMBAYARAN
+  // ---------------------------------------------------------------------------
+
+  // CREATE — Menambahkan tagihan baru.
+  Future<int> insertBill(BillModel bill) async {
+    final db = await database;
+    return await db.insert(
+      tableBills,
+      bill.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  // READ — Mengambil semua tagihan, diurutkan berdasarkan jatuh tempo terdekat.
+  Future<List<BillModel>> getAllBills() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      tableBills,
+      orderBy: '$colBillIsPaid ASC, $colBillDueDate ASC, $colBillId DESC',
+    );
+    return maps.map((map) => BillModel.fromMap(map)).toList();
+  }
+
+  // READ — Mengambil tagihan berdasarkan status bayar (belum / sudah lunas).
+  Future<List<BillModel>> getBillsByPaidStatus(bool isPaid) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      tableBills,
+      where: '$colBillIsPaid = ?',
+      whereArgs: [isPaid ? 1 : 0],
+      orderBy: '$colBillDueDate ASC, $colBillId DESC',
+    );
+    return maps.map((map) => BillModel.fromMap(map)).toList();
+  }
+
+  // UPDATE — Memperbarui data tagihan.
+  Future<int> updateBill(BillModel bill) async {
+    assert(bill.id != null, 'updateBill: id tidak boleh null');
+    final db = await database;
+    return await db.update(
+      tableBills,
+      bill.toMap(),
+      where: '$colBillId = ?',
+      whereArgs: [bill.id],
+    );
+  }
+
+  // DELETE — Menghapus tagihan berdasarkan id.
+  Future<int> deleteBill(int id) async {
+    final db = await database;
+    return await db.delete(
+      tableBills,
+      where: '$colBillId = ?',
+      whereArgs: [id],
+    );
+  }
+
+  // OPERASI BAYAR TAGIHAN — Atomik: Ubah status tagihan & buat transaksi pengeluaran.
+  Future<void> payBill(BillModel bill) async {
+    assert(bill.id != null, 'payBill: id tidak boleh null');
+    final db = await database;
+    final now = DateTime.now();
+    final today =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+
+    await db.transaction((txn) async {
+      // 1. Update status tagihan menjadi sudah dibayar
+      await txn.update(
+        tableBills,
+        {
+          colBillIsPaid: 1,
+          colBillPaidDate: today,
+        },
+        where: '$colBillId = ?',
+        whereArgs: [bill.id],
+      );
+
+      // 2. Buat transaksi pengeluaran baru otomatis
+      await txn.insert(
+        tableTransactions,
+        {
+          colType: TransactionModel.expense,
+          colAmount: bill.amount,
+          colDescription: 'Tagihan: ${bill.description}',
+          colDate: today,
+        },
+      );
+    });
+  }
+
+  // Menghitung jumlah tagihan yang belum dibayar.
+  Future<int> getUnpaidBillsCount() async {
+    final db = await database;
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM $tableBills WHERE $colBillIsPaid = 0',
+    );
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
+  // Menghitung total nominal tagihan yang belum dibayar.
+  Future<double> getTotalUnpaidBillsAmount() async {
+    final db = await database;
+    final result = await db.rawQuery(
+      'SELECT SUM($colBillAmount) as total FROM $tableBills WHERE $colBillIsPaid = 0',
+    );
+    final total = result.first['total'];
+    if (total == null) return 0.0;
+    return (total as num).toDouble();
   }
 
   // Menutup koneksi database. Opsional — biasanya tidak perlu dipanggil manual.

@@ -78,7 +78,7 @@ Meningkatkan kenyamanan pengguna (*user experience*) dalam meninjau ringkasan ke
     - Ketika status tersembunyi (Hide), nominal Saldo Utama, Total Pemasukan, dan Total Pengeluaran otomatis di-masking menjadi `••••••••` demi menjaga privasi pengguna.
     - Status preferensi mata disimpan secara permanen menggunakan `shared_preferences` sehingga jika aplikasi ditutup dalam keadaan tersembunyi, saat dibuka kembali nominal tetap tersembunyi.
 
-13. **Fitur Catat Tagihan (Bills Tracker) CRUD & Bayar Otomatis** *(Akan Dikerjakan)*
+13. **Fitur Catat Tagihan (Bills Tracker) CRUD & Bayar Otomatis** *(Selesai)*
     - Modul pencatatan tagihan (*bills tracker*) dengan kemampuan CRUD lengkap (Tambah, Lihat, Edit, Hapus).
     - Field data tagihan: `Nominal` (dengan pemisah ribuan otomatis), `Deskripsi` (nama tagihan), dan `Tanggal Jatuh Tempo` (date picker).
     - Status awal tagihan saat dibuat otomatis **"Belum Dibayar"** (*is_paid = 0*).
@@ -164,7 +164,7 @@ Meningkatkan kenyamanan pengguna (*user experience*) dalam meninjau ringkasan ke
 - Mengimplementasikan state preferensi `_isBalanceHidden` pada `DashboardScreen` yang disimpan secara persisten.
 - Menambahkan tombol ikon mata di `_HeroWalletCard` dan menerapkan masking `••••••••` pada Saldo, Total Pemasukan, dan Total Pengeluaran saat disembunyikan.
 
-### Tahap 12: Fitur Catat Tagihan CRUD & Bayar Otomatis (AKAN DIKERJAKAN)
+### Tahap 12: Fitur Catat Tagihan CRUD & Bayar Otomatis (SELESAI)
 - **Bagian 1: Skema Database & Model:**
   - Membuat tabel `bills` di `DatabaseHelper` dan membuat model `BillModel`.
   - Membuat `BillRepository` untuk operasi insert, fetch, update, delete, dan bayar tagihan.
@@ -224,11 +224,11 @@ Meningkatkan kenyamanan pengguna (*user experience*) dalam meninjau ringkasan ke
    - [x] Tutup aplikasi dalam keadaan nominal tersembunyi lalu buka kembali $\rightarrow$ Nominal tetap tersembunyi secara permanen.
 
 8. **Pengujian Fitur Catat Tagihan:**
-   - [ ] Menambah tagihan baru melalui form $\rightarrow$ Tagihan tersimpan dengan status "Belum Dibayar".
-   - [ ] Tagihan tampil di tab "Belum Dibayar" dan tab "Semua" dengan indikator sisa hari jatuh tempo.
-   - [ ] Mengedit tagihan $\rightarrow$ Data nominal/deskripsi/jatuh tempo ter-update dengan benar.
-   - [ ] Menghapus tagihan $\rightarrow$ Tagihan terhapus dari daftar.
-   - [ ] Mengklik tombol "Bayar" pada tagihan $\rightarrow$ Muncul dialog konfirmasi bayar.
-   - [ ] Mengonfirmasi bayar $\rightarrow$ Status tagihan berubah menjadi "Sudah Dibayar", berpindah ke tab Sudah Dibayar.
-   - [ ] Cek saldo Dashboard $\rightarrow$ Saldo otomatis berkurang sejumlah nominal tagihan tersebut.
-   - [ ] Cek halaman Pengeluaran $\rightarrow$ Muncul transaksi pengeluaran baru bernama `'Tagihan: [Deskripsi Tagihan]'`.
+   - [x] Menambah tagihan baru melalui form $\rightarrow$ Tagihan tersimpan dengan status "Belum Dibayar".
+   - [x] Tagihan tampil di tab "Belum Dibayar" dan tab "Semua" dengan indikator sisa hari jatuh tempo.
+   - [x] Mengedit tagihan $\rightarrow$ Data nominal/deskripsi/jatuh tempo ter-update dengan benar.
+   - [x] Menghapus tagihan $\rightarrow$ Tagihan terhapus dari daftar.
+   - [x] Mengklik tombol "Bayar" pada tagihan $\rightarrow$ Muncul dialog konfirmasi bayar.
+   - [x] Mengonfirmasi bayar $\rightarrow$ Status tagihan berubah menjadi "Sudah Dibayar", berpindah ke tab Sudah Dibayar.
+   - [x] Cek saldo Dashboard $\rightarrow$ Saldo otomatis berkurang sejumlah nominal tagihan tersebut.
+   - [x] Cek halaman Pengeluaran $\rightarrow$ Muncul transaksi pengeluaran baru bernama `'Tagihan: [Deskripsi Tagihan]'`.

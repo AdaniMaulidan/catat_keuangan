@@ -65,6 +65,14 @@ Meningkatkan kenyamanan pengguna (*user experience*) dalam meninjau ringkasan ke
     - Menyediakan tombol pemilih / Toggle Pill untuk beralih antara grafik **Pengeluaran** dan **Pemasukan**.
     - Memastikan widget disusun secara responsif (`Expanded` / `Flexible`) agar terhindar dari *RenderFlex overflow* dan menyediakan tampilan *empty state* jika belum ada data.
 
+11. **Pemisahan Aplikasi: Pemulihan APK Lama (Data Asli) & Pemisahan APK Baru (Data Kosong)** *(Selesai)*
+    - Memulihkan dan mencetak kembali file APK Lama persis pada titik commit `5dd9eeeb4a3986c5915b2e9bb27733d8c2774594` dengan package ID asli (`com.example.catat_keuangan`) agar aplikasi lama kembali aktif di HP pengguna dan tetap mengikat data transaksi riil yang sudah ada sebelumnya.
+    - Menjadikan versi pengembangan baru (dimulai dari `c1d2a1fe8dadd010c98a97f489f0a2febc2537a1` hingga commit terkini) sebagai aplikasi kedua yang berdiri sendiri dengan identitas baru (`applicationId = "com.adani.ayohemat"`) dan nama database terpisah (`catat_keuangan_v2.db`).
+    - Memastikan seluruh proses build APK lama dilakukan di direktori kerja terpisah/sementara sehingga kode terkini pada repositori `catat_keuangan` tidak ada yang diubah, di-rollback, ataupun dirusak.
+    - Menghasilkan dua aplikasi mandiri yang terpasang berdampingan di HP:
+      1. **Aplikasi Lama (`AyoHemat`):** Tampilan versi stabil awal dengan database transaksi asli.
+      2. **Aplikasi Baru (`AyoHematbyAdani`):** Tampilan modern (Stitch, Donut Chart, format titik, dll.) dengan database awal kosong.
+
 ---
 
 ## 📁 File yang Terlibat & Rencana Perubahan
@@ -80,6 +88,8 @@ Meningkatkan kenyamanan pengguna (*user experience*) dalam meninjau ringkasan ke
 | `lib/repositories/transaction_repository.dart` & `lib/database/database_helper.dart` | Menyediakan metode query transaksi bulanan per tipe (`getTransactionsByTypeAndMonth`). |
 | `lib/widgets/charts/category_pie_chart.dart` | *(File Baru)* Komponen Donut Chart komposisi kategori, filter perbulan, toggle tipe (Pengeluaran/Pemasukan), dan legend list persentase. |
 | `lib/screens/chart/chart_screen.dart` | Mengintegrasikan widget `CategoryPieChart` di atas grafik garis, mengelola sinkronisasi data bulanan. |
+| `android/app/build.gradle` | Mengubah `applicationId` versi baru menjadi identitas unik terpisah (`com.adani.ayohemat`). |
+| `lib/database/database_helper.dart` | Mengisolasi nama database SQLite versi baru (`catat_keuangan_v2.db`) agar datanya bersih dan terpisah dari aplikasi lama. |
 
 ---
 
@@ -117,6 +127,16 @@ Meningkatkan kenyamanan pengguna (*user experience*) dalam meninjau ringkasan ke
 - Menambahkan tombol toggle tipe (Pengeluaran / Pemasukan) dan navigasi bulan (`‹ Bulan Tahun ›`).
 - Memasang widget tersebut ke dalam `SingleChildScrollView` pada `lib/screens/chart/chart_screen.dart`.
 
+### Tahap 10: Pemulihan APK Lama & Pemisahan APK Baru (SELESAI)
+- **Bagian 1 (Ekstraksi & Build APK Lama):**
+  - Mengekstrak kode commit `5dd9eeeb4a3986c5915b2e9bb27733d8c2774594` ke direktori build sementara (`scratch/old_build`).
+  - Melakukan build APK rilis lama (`AyoHemat-Lama.apk`) dengan `applicationId` asli `com.example.catat_keuangan`.
+  - Memasang/mengembalikan APK lama tersebut ke HP pengguna sehingga data riil pengguna langsung tersambung kembali.
+- **Bagian 2 (Isolasi & Build APK Baru):**
+  - Mengubah `applicationId` pada `android/app/build.gradle` menjadi identitas baru (`com.adani.ayohemat`).
+  - Memisahkan nama database lokal SQLite di `lib/database/database_helper.dart` menjadi database baru (`catat_keuangan_v2.db`) dengan data kosong.
+  - Melakukan build APK baru (`AyoHematbyAdani-Baru.apk`) dan memasangnya ke HP sebagai aplikasi kedua berdampingan.
+
 ---
 
 ## ✅ Skenario Pengujian (Testing & Verifikasi)
@@ -152,3 +172,10 @@ Meningkatkan kenyamanan pengguna (*user experience*) dalam meninjau ringkasan ke
    - [x] Angka total di tengah Donut Chart sesuai dengan jumlah nominal seluruh transaksi di bulan tersebut.
    - [x] Persentase di legend sisi kanan terhitung dengan akurat (total akumulasi 100%).
    - [x] Ketika tidak ada transaksi pada bulan yang dipilih $\rightarrow$ Tampil *empty state* yang rapi tanpa error render.
+
+6. **Pengujian Pemisahan Aplikasi & Keutuhan Data:**
+   - [x] Aplikasi Lama terpasang kembali di HP dan menampilkan seluruh data transaksi riil sebelumnya.
+   - [x] Aplikasi Baru terpasang berdampingan di HP tanpa menimpa aplikasi lama.
+   - [x] Aplikasi Baru memiliki nama `AyoHematbyAdani` dan icon kotak 2048x2048 yang proporsional.
+   - [x] Data di Aplikasi Baru dalam keadaan bersih/kosong saat pertama kali dibuka.
+   - [x] Penambahan transaksi di Aplikasi Baru tidak mempengaruhi data di Aplikasi Lama, begitu pun sebaliknya.

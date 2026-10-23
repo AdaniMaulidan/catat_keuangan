@@ -17,7 +17,7 @@ class DatabaseHelper {
   static Database? _db;
 
   // Nama file dan versi database.
-  static const String _dbName = 'catat_keuangan.db';
+  static const String _dbName = 'catat_keuangan_v2.db';
   static const int _dbVersion = 1;
 
   // Nama tabel dan kolom — dijadikan konstanta untuk menghindari typo.

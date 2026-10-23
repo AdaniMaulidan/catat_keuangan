@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../repositories/transaction_repository.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/currency_formatter.dart';
@@ -13,6 +14,7 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
+  static const String _prefKeyHideBalance = 'is_balance_hidden';
   final _repository = TransactionRepository();
 
   // --- State keuangan ---
@@ -21,11 +23,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
   double _totalExpense = 0;
   bool _isLoading = true;
   String? _errorMessage;
+  bool _isBalanceHidden = false;
 
   @override
   void initState() {
     super.initState();
+    _loadPreference();
     _loadAll();
+  }
+
+  Future<void> _loadPreference() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (mounted) {
+        setState(() {
+          _isBalanceHidden = prefs.getBool(_prefKeyHideBalance) ?? false;
+        });
+      }
+    } catch (_) {
+      // Default to false if error occurs
+    }
+  }
+
+  Future<void> _toggleHideBalance() async {
+    final newValue = !_isBalanceHidden;
+    setState(() {
+      _isBalanceHidden = newValue;
+    });
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_prefKeyHideBalance, newValue);
+    } catch (_) {}
   }
 
   Future<void> _loadAll() async {
@@ -242,7 +270,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // --- Hero Wallet Card (Saldo) ---
-            _HeroWalletCard(balance: _balance),
+            _HeroWalletCard(
+              balance: _balance,
+              isHidden: _isBalanceHidden,
+              onToggleHidden: _toggleHideBalance,
+            ),
             const SizedBox(height: 16),
 
             // --- Row: Quick Stats (Pemasukan + Pengeluaran) ---
@@ -253,6 +285,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     label: 'Total Pemasukan',
                     amount: _totalIncome,
                     isIncome: true,
+                    isHidden: _isBalanceHidden,
                     onTap: _goToIncome,
                   ),
                 ),
@@ -262,6 +295,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     label: 'Total Pengeluaran',
                     amount: _totalExpense,
                     isIncome: false,
+                    isHidden: _isBalanceHidden,
                     onTap: _goToExpense,
                   ),
                 ),
@@ -324,15 +358,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
 // ---------------------------------------------------------------------------
 class _HeroWalletCard extends StatelessWidget {
   final double balance;
+  final bool isHidden;
+  final VoidCallback onToggleHidden;
 
-  const _HeroWalletCard({required this.balance});
+  const _HeroWalletCard({
+    required this.balance,
+    required this.isHidden,
+    required this.onToggleHidden,
+  });
 
   @override
   Widget build(BuildContext context) {
     final isNegative = balance < 0;
-    final displayAmount = isNegative
-        ? '-${CurrencyFormatter.format(balance.abs())}'
-        : CurrencyFormatter.format(balance);
+    final displayAmount = isHidden
+        ? '••••••••'
+        : (isNegative
+            ? '-${CurrencyFormatter.format(balance.abs())}'
+            : CurrencyFormatter.format(balance));
 
     return Container(
       decoration: BoxDecoration(
@@ -374,30 +416,75 @@ class _HeroWalletCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header: Badge + Label
+                // Header: Badge + Label & Eye Toggle Pill Button
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.account_balance_wallet_outlined,
-                        size: 18,
-                        color: AppTheme.emerald200,
-                      ),
+                    Row(
+                      children: [
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.account_balance_wallet_outlined,
+                            size: 18,
+                            color: AppTheme.emerald200,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        const Text(
+                          'Saldo Rekening',
+                          style: TextStyle(
+                            color: AppTheme.slate300,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 10),
-                    const Text(
-                      'Saldo Rekening',
-                      style: TextStyle(
-                        color: AppTheme.slate300,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: 0.2,
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: onToggleHidden,
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.16),
+                              width: 0.8,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                isHidden
+                                    ? Icons.visibility_off_rounded
+                                    : Icons.visibility_rounded,
+                                size: 15,
+                                color: Colors.white.withOpacity(0.9),
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                isHidden ? 'Tampilkan' : 'Sembunyikan',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.9),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -411,10 +498,12 @@ class _HeroWalletCard extends StatelessWidget {
                   child: Text(
                     displayAmount,
                     style: TextStyle(
-                      color: isNegative ? AppTheme.rose200 : Colors.white,
+                      color: isHidden
+                          ? Colors.white.withOpacity(0.85)
+                          : (isNegative ? AppTheme.rose200 : Colors.white),
                       fontSize: 32,
                       fontWeight: FontWeight.w800,
-                      letterSpacing: -0.5,
+                      letterSpacing: isHidden ? 3.0 : -0.5,
                     ),
                   ),
                 ),
@@ -428,17 +517,27 @@ class _HeroWalletCard extends StatelessWidget {
                       height: 6,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: isNegative ? AppTheme.rose400 : AppTheme.emerald400,
+                        color: isHidden
+                            ? AppTheme.slate400
+                            : (isNegative
+                                ? AppTheme.rose400
+                                : AppTheme.emerald400),
                       ),
                     ),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        isNegative
-                            ? 'Pengeluaran melebihi pemasukan'
-                            : 'Terupdate otomatis',
+                        isHidden
+                            ? 'Nominal dirahasiakan'
+                            : (isNegative
+                                ? 'Pengeluaran melebihi pemasukan'
+                                : 'Terupdate otomatis'),
                         style: TextStyle(
-                          color: isNegative ? AppTheme.rose200 : AppTheme.slate400,
+                          color: isHidden
+                              ? AppTheme.slate400
+                              : (isNegative
+                                  ? AppTheme.rose200
+                                  : AppTheme.slate400),
                           fontSize: 12,
                           fontWeight: FontWeight.w400,
                         ),
@@ -464,12 +563,14 @@ class _SummaryStatCard extends StatelessWidget {
   final String label;
   final double amount;
   final bool isIncome;
+  final bool isHidden;
   final VoidCallback onTap;
 
   const _SummaryStatCard({
     required this.label,
     required this.amount,
     required this.isIncome,
+    this.isHidden = false,
     required this.onTap,
   });
 
@@ -540,12 +641,12 @@ class _SummaryStatCard extends StatelessWidget {
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    CurrencyFormatter.format(amount),
+                    isHidden ? '••••••••' : CurrencyFormatter.format(amount),
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w800,
                       color: primaryColor,
-                      letterSpacing: -0.3,
+                      letterSpacing: isHidden ? 2.0 : -0.3,
                     ),
                   ),
                 ),

@@ -73,6 +73,22 @@ Meningkatkan kenyamanan pengguna (*user experience*) dalam meninjau ringkasan ke
       1. **Aplikasi Lama (`AyoHemat`):** Tampilan versi stabil awal dengan database transaksi asli.
       2. **Aplikasi Baru (`AyoHematbyAdani`):** Tampilan modern (Stitch, Donut Chart, format titik, dll.) dengan database awal kosong.
 
+12. **Show / Hide Toggle (Ikon Mata) untuk Saldo & Ringkasan Nominal** *(Selesai)*
+    - Menambahkan tombol toggle ikon mata (`Icons.visibility_rounded` dan `Icons.visibility_off_rounded`) pada kartu Hero Wallet di Dashboard berdampingan dengan label Saldo.
+    - Ketika status tersembunyi (Hide), nominal Saldo Utama, Total Pemasukan, dan Total Pengeluaran otomatis di-masking menjadi `••••••••` demi menjaga privasi pengguna.
+    - Status preferensi mata disimpan secara permanen menggunakan `shared_preferences` sehingga jika aplikasi ditutup dalam keadaan tersembunyi, saat dibuka kembali nominal tetap tersembunyi.
+
+13. **Fitur Catat Tagihan (Bills Tracker) CRUD & Bayar Otomatis** *(Akan Dikerjakan)*
+    - Modul pencatatan tagihan (*bills tracker*) dengan kemampuan CRUD lengkap (Tambah, Lihat, Edit, Hapus).
+    - Field data tagihan: `Nominal` (dengan pemisah ribuan otomatis), `Deskripsi` (nama tagihan), dan `Tanggal Jatuh Tempo` (date picker).
+    - Status awal tagihan saat dibuat otomatis **"Belum Dibayar"** (*is_paid = 0*).
+    - Tombol aksi **"Bayar"** pada item tagihan yang belum lunas:
+      - Menampilkan dialog konfirmasi pembayaran.
+      - Saat dikonfirmasi, status tagihan berubah menjadi **"Sudah Dibayar"** (*is_paid = 1*) dan tanggal bayar tercatat.
+      - Secara otomatis membuat transaksi **Pengeluaran (Expense)** baru di sistem keuangan dengan nominal tagihan, sehingga **saldo langsung berkurang** dan transaksi tercatat transparan di riwayat pengeluaran, kalender, dan grafik.
+    - Layar daftar tagihan (`BillScreen`) dilengkapi tab filter (*Semua, Belum Dibayar, Sudah Dibayar*), indikator sisa hari jatuh tempo (*"Jatuh tempo X hari lagi"*, *"Hari ini"*, *"Terlewat"*), dan kartu ringkasan total tagihan belum bayar.
+    - Pintu masuk menu diletakkan pada kartu Menu Dashboard dengan badge jumlah tagihan aktif yang belum dibayar.
+
 ---
 
 ## 📁 File yang Terlibat & Rencana Perubahan
@@ -89,7 +105,13 @@ Meningkatkan kenyamanan pengguna (*user experience*) dalam meninjau ringkasan ke
 | `lib/widgets/charts/category_pie_chart.dart` | *(File Baru)* Komponen Donut Chart komposisi kategori, filter perbulan, toggle tipe (Pengeluaran/Pemasukan), dan legend list persentase. |
 | `lib/screens/chart/chart_screen.dart` | Mengintegrasikan widget `CategoryPieChart` di atas grafik garis, mengelola sinkronisasi data bulanan. |
 | `android/app/build.gradle` | Mengubah `applicationId` versi baru menjadi identitas unik terpisah (`com.adani.ayohemat`). |
-| `lib/database/database_helper.dart` | Mengisolasi nama database SQLite versi baru (`catat_keuangan_v2.db`) agar datanya bersih dan terpisah dari aplikasi lama. |
+| `lib/database/database_helper.dart` | Mengisolasi nama database SQLite versi baru (`catat_keuangan_v2.db`), menambahkan tabel `bills`, serta metode query/transaksi tagihan. |
+| `pubspec.yaml` | Menambahkan dependensi `shared_preferences` untuk penyimpanan permanen toggle mata. |
+| `lib/models/bill_model.dart` | *(File Baru)* Model data tagihan (`BillModel`) mencakup `amount`, `description`, `dueDate`, `isPaid`, dan `paidDate`. |
+| `lib/repositories/bill_repository.dart` | *(File Baru)* Repository perantara UI dan database untuk data tagihan. |
+| `lib/screens/bill/bill_screen.dart` | *(File Baru)* Layar daftar tagihan dengan tab filter, ringkasan total belum dibayar, tombol bayar, dan aksi edit/hapus. |
+| `lib/screens/bill/bill_form_screen.dart` | *(File Baru)* Form tambah dan edit tagihan dengan format nominal bertitik dan date picker jatuh tempo. |
+| `lib/screens/dashboard/dashboard_screen.dart` | Mengintegrasikan tombol toggle mata pada Hero Wallet Card dan menambahkan kartu menu "Tagihan" dengan badge pengingat. |
 
 ---
 
@@ -137,6 +159,22 @@ Meningkatkan kenyamanan pengguna (*user experience*) dalam meninjau ringkasan ke
   - Memisahkan nama database lokal SQLite di `lib/database/database_helper.dart` menjadi database baru (`catat_keuangan_v2.db`) dengan data kosong.
   - Melakukan build APK baru (`AyoHematbyAdani-Baru.apk`) dan memasangnya ke HP sebagai aplikasi kedua berdampingan.
 
+### Tahap 11: Show / Hide Toggle Saldo & Ringkasan (SELESAI)
+- Menambahkan dependensi `shared_preferences` ke `pubspec.yaml`.
+- Mengimplementasikan state preferensi `_isBalanceHidden` pada `DashboardScreen` yang disimpan secara persisten.
+- Menambahkan tombol ikon mata di `_HeroWalletCard` dan menerapkan masking `••••••••` pada Saldo, Total Pemasukan, dan Total Pengeluaran saat disembunyikan.
+
+### Tahap 12: Fitur Catat Tagihan CRUD & Bayar Otomatis (AKAN DIKERJAKAN)
+- **Bagian 1: Skema Database & Model:**
+  - Membuat tabel `bills` di `DatabaseHelper` dan membuat model `BillModel`.
+  - Membuat `BillRepository` untuk operasi insert, fetch, update, delete, dan bayar tagihan.
+- **Bagian 2: Layar Daftar Tagihan & Form:**
+  - Membuat `BillFormScreen` untuk input dan edit data tagihan (nominal, deskripsi, tanggal jatuh tempo).
+  - Membuat `BillScreen` dengan tab filter (*Semua, Belum Dibayar, Sudah Dibayar*), card tagihan responsif, indikator sisa hari, dan dialog konfirmasi bayar.
+- **Bagian 3: Integrasi Dashboard:**
+  - Menambahkan kartu menu "Tagihan" di Dashboard dengan badge jumlah tagihan yang belum dibayar.
+  - Memastikan aksi bayar tagihan otomatis memotong saldo, membuat transaksi pengeluaran, dan me-refresh dashboard secara instan.
+
 ---
 
 ## ✅ Skenario Pengujian (Testing & Verifikasi)
@@ -179,3 +217,18 @@ Meningkatkan kenyamanan pengguna (*user experience*) dalam meninjau ringkasan ke
    - [x] Aplikasi Baru memiliki nama `AyoHematbyAdani` dan icon kotak 2048x2048 yang proporsional.
    - [x] Data di Aplikasi Baru dalam keadaan bersih/kosong saat pertama kali dibuka.
    - [x] Penambahan transaksi di Aplikasi Baru tidak mempengaruhi data di Aplikasi Lama, begitu pun sebaliknya.
+
+7. **Pengujian Show / Hide Toggle Saldo:**
+   - [x] Mengklik ikon mata di Hero Wallet Card $\rightarrow$ Saldo, Total Pemasukan, dan Total Pengeluaran berubah menjadi `••••••••`.
+   - [x] Mengklik ikon mata lagi $\rightarrow$ Nominal asli kembali tampil.
+   - [x] Tutup aplikasi dalam keadaan nominal tersembunyi lalu buka kembali $\rightarrow$ Nominal tetap tersembunyi secara permanen.
+
+8. **Pengujian Fitur Catat Tagihan:**
+   - [ ] Menambah tagihan baru melalui form $\rightarrow$ Tagihan tersimpan dengan status "Belum Dibayar".
+   - [ ] Tagihan tampil di tab "Belum Dibayar" dan tab "Semua" dengan indikator sisa hari jatuh tempo.
+   - [ ] Mengedit tagihan $\rightarrow$ Data nominal/deskripsi/jatuh tempo ter-update dengan benar.
+   - [ ] Menghapus tagihan $\rightarrow$ Tagihan terhapus dari daftar.
+   - [ ] Mengklik tombol "Bayar" pada tagihan $\rightarrow$ Muncul dialog konfirmasi bayar.
+   - [ ] Mengonfirmasi bayar $\rightarrow$ Status tagihan berubah menjadi "Sudah Dibayar", berpindah ke tab Sudah Dibayar.
+   - [ ] Cek saldo Dashboard $\rightarrow$ Saldo otomatis berkurang sejumlah nominal tagihan tersebut.
+   - [ ] Cek halaman Pengeluaran $\rightarrow$ Muncul transaksi pengeluaran baru bernama `'Tagihan: [Deskripsi Tagihan]'`.
